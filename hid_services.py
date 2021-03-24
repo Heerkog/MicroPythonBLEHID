@@ -3,6 +3,14 @@ import struct
 import bluetooth
 from bluetooth import UUID
 
+F_READ = bluetooth.FLAG_READ
+F_WRITE = bluetooth.FLAG_WRITE
+F_READ_WRITE = bluetooth.FLAG_READ | bluetooth.FLAG_WRITE
+F_READ_NOTIFY = bluetooth.FLAG_READ | bluetooth.FLAG_NOTIFY
+
+ATT_F_READ = 0x01
+ATT_F_WRITE = 0x02
+
 # Advertising payloads are repeated packets of the following form:
 #   1 byte data length (N + 1)
 #   1 byte type (see constants below)
@@ -48,6 +56,11 @@ _IRQ_CONNECTION_UPDATE = const(27)
 _IRQ_ENCRYPTION_UPDATE = const(28)
 _IRQ_GET_SECRET = const(29)
 _IRQ_SET_SECRET = const(30)
+
+DEVICE_STOPPED = const(0)
+DEVICE_IDLE = const(1)
+DEVICE_ADVERTISING = const(2)
+DEVICE_CONNECTED = const(3)
 
 class Advertiser:
 
@@ -113,41 +126,68 @@ class Advertiser:
     def __init__(self, ble, services=[UUID(0x1812)], appearance=const(960), name="Generic HID Device"):
         self._ble = ble
         self._payload = self.advertising_payload(name=name, services=services, appearance=appearance)
+        print(self._payload)
+        print(self.decode_name(self._payload))
+        print(self.decode_services(self._payload))
         self.advertising = False
         print("Advertiser created")
 
-    # Start advertising at 500000 interval
+    # Start advertising at 100000 interval
     def start_advertising(self):
         if not self.advertising:
-            self._ble.gap_advertise(500000, adv_data=self._payload)
-            self.advertising = True
+            self._ble.gap_advertise(100000, adv_data=self._payload)
             print("Started advertising")
 
-    # Start advertising by setting interval of 0
+    # Stop advertising by setting interval of 0
     def stop_advertising(self):
         if self.advertising:
             self._ble.gap_advertise(0, adv_data=self._payload)
-            self.advertising = False
             print("Stopped advertising")
 
-    # Are we advertising
-    def is_advertising(self):
-        return self.advertising
 
+# Class that represents a general HID device state
+class HumanInterfaceDevice(object):
 
-class Server:
+    def __init__(self, device_name="Generic HID Device"):
+        self._ble = bluetooth.BLE()
+        self.adv = None
+        self.device_state = DEVICE_STOPPED
+        self.conn_handle = None
+        self.state_change_callback = None
+
+        print("Server created")
+
+        self.device_name = device_name
+        self.service_uuids = [UUID(0x180A), UUID(0x180F), UUID(0x1812)]  # Service UUIDs: DIS, BAS, HIDS
+        self.device_appearance = 960                                     # Generic HID Appearance
+        self.battery_level = 100
+
+        self.DIS = (                            # Device Information Service description
+            UUID(0x180A),                       # Device Information
+            (
+                (UUID(0x2A50), F_READ),         # PnP ID
+            ),
+        )
+        self.BAS = (                            # Battery Service description
+            UUID(0x180F),                       # Device Information
+            (
+                (UUID(0x2A19), F_READ_NOTIFY),  # Battery level
+            ),
+        )
+
+        self.services = [self.DIS, self.BAS]    # List of service descriptions, append HIDS
+
+        self.HID_INPUT_REPORT = None
 
     def ble_irq(self, event, data):
         if event == _IRQ_CENTRAL_CONNECT:
             self.conn_handle, _, _ = data
             print("Central connected: ", self.conn_handle)
-            if self.connect_callback is not None:
-                self.connect_callback()
+            self.set_state(DEVICE_CONNECTED)
         elif event == _IRQ_CENTRAL_DISCONNECT:
             self.conn_handle = None
             print("Central disconnected")
-            if self.disconnect_callback is not None:
-                self.disconnect_callback()
+            self.set_state(DEVICE_IDLE)
         elif event == _IRQ_MTU_EXCHANGED:
             print("MTU exchanged")
         elif event == _IRQ_CONNECTION_UPDATE:
@@ -156,82 +196,222 @@ class Server:
         else:
             print("Unhandled IRQ event: ", event)
 
-    def is_connected(self):
-        return self.conn_handle is not None
-
-    def __init__(self, _ble):
-        self.conn_handle = None
-        self._ble = _ble
-        self.started = False
-        self.handles = None
-        self.adv = None
-
-        self.connect_callback = None
-        self.disconnect_callback = None
-
-        print("Server created")
-
-    def start(self, hid_device):
-        if not self.started:
+    def start(self):
+        if self.device_state is DEVICE_STOPPED:
             self._ble.active(1)
             self._ble.irq(self.ble_irq)
-            self._ble.config(gap_name=hid_device.get_name())
+            self._ble.config(gap_name=self.device_name)
 
+            self.set_state(DEVICE_IDLE)
             print("BLE on")
 
-            self.handles = self._ble.gatts_register_services((hid_device.get_service_report(),))
-            print("Registered services")
+    def write_service_characteristics(self, handles):
+        print("Writing service characteristics")
 
-            h_info, h_hid, _, self.h_rep, h_d1, h_proto = self.handles[0]
-            print("Obtained service handles: ", self.handles[0])
+        (h_pnp,) = handles[0]
+        (self.h_bat,) = handles[1]
 
-            handles_data = hid_device.get_service_report_data()
+        # Write service data
 
-            for h, d in zip(self.handles[0], handles_data):
-                if d is not None:
-                    self._ble.gatts_write(h, d)
+        print("Writing device information service characteristics")
+        # PnP id: source: BT, vendor: Microsoft, product id: 1, version 0.0.1
+        # self._ble.gatts_write(h_pnp, b"\x01\xFE\xB2\x00\x01\x00\x01")
+        self._ble.gatts_write(h_pnp, struct.pack("<6B", 0x01, 0xFEB2, 1, 0x01, 0x01))
 
-            print("Wrote service handles: ", handles_data)
-
-            self.adv = Advertiser(self._ble, [hid_device.get_uuid()], hid_device.get_appearance(), hid_device.get_name())
-
-            self.started = True
-            print("Server started")
+        print("Writing battery service characteristics")
+        # Battery level
+        self._ble.gatts_write(self.h_bat, struct.pack("<B", self.battery_level))
 
     def stop(self):
-        if self.started:
-            if self.adv.advertising:
+        if self.device_state is not DEVICE_STOPPED:
+            if self.device_state is DEVICE_ADVERTISING:
                 self.adv.stop_advertising()
             self._ble.active(0)
-            self.handles = None
-            self.h_rep = None
-            self.adv = None
-            self.started = False
+
+            self.set_state(DEVICE_STOPPED)
             print("Server stopped")
 
     def is_running(self):
-        return self.started
+        return self.device_state is not DEVICE_STOPPED
+
+    def is_connected(self):
+        return self.device_state is DEVICE_CONNECTED
+
+    def is_advertising(self):
+        return self.device_state is DEVICE_ADVERTISING
+
+    def set_state(self, state):
+        self.device_state = state
+        if self.state_change_callback is not None:
+            self.state_change_callback()
+
+    def get_state(self):
+        return self.device_state
+
+    def set_state_change_callback(self, callback):
+        self.state_change_callback = callback
 
     def start_advertising(self):
-        if self.started:
+        if self.device_state is not DEVICE_STOPPED and self.device_state is not DEVICE_ADVERTISING:
             self.adv.start_advertising()
+            self.set_state(DEVICE_ADVERTISING)
 
     def stop_advertising(self):
-        if self.started:
+        if self.device_state is not DEVICE_STOPPED:
             self.adv.stop_advertising()
+            if self.device_state is not DEVICE_CONNECTED:
+                self.set_state(DEVICE_IDLE)
 
-    # Are we advertising
-    def is_advertising(self):
-        return self.adv.is_advertising()
+    def get_device_name(self):
+        return self.device_name
 
-    def send_report(self, report):
-        if self.started and self.is_connected():
-            self._ble.gatts_notify(self.conn_handle, self.h_rep, report)
-            print("Sent report: ", struct.unpack("<Bbb", report), " to conn: ", self.conn_handle, " on response handle: ", self.h_rep)
+    def get_services_uuids(self):
+        return self.service_uuids
 
-    def set_connect_callback(self, callback):
-        self.connect_callback = callback
+    def get_appearance(self):
+        return self.device_appearance
 
-    def set_disconnect_callback(self, callback):
-        self.disconnect_callback = callback
+    def get_battery_level(self):
+        return self.battery_level
+
+    def set_battery_level(self, level):
+        if level > 100:
+            self.battery_level = 100
+        elif level < 0:
+            self.battery_level = 0
+        else:
+            self.battery_level = level
+
+    def notify_battery_level(self):
+        if self.is_connected():
+            print("Notify battery level: ", self.battery_level)
+            self._ble.gatts_notify(self.conn_handle, self.h_bat, struct.pack("<B", self.battery_level))
+
+    def notify_hid_report(self):
+        return
+
+# Class that represents the Joystick state
+class Joystick(HumanInterfaceDevice):
+    def __init__(self, name="Bluetooth Joystick"):
+        super(Joystick, self).__init__(name)
+        self.device_appearance = 963  # Device appearance ID, 963 = joystick
+
+        self.HIDS = (  # Service description: describes the service and how we communicate
+            UUID(0x1812),  # Human Interface Device
+            (
+                (UUID(0x2A4A), F_READ),  # HID information
+                (UUID(0x2A4B), F_READ),  # HID report map
+                (UUID(0x2A4C), F_WRITE),  # HID control point
+                (UUID(0x2A4D), F_READ_NOTIFY, ((UUID(0x2908), ATT_F_READ),)),  # HID report / reference
+                (UUID(0x2A4E), F_READ_WRITE),  # HID protocol mode
+            ),
+        )
+
+        # fmt: off
+        self.HID_INPUT_REPORT = bytes([    # Report Description: describes what we communicate
+            0x05, 0x01,                    # USAGE_PAGE (Generic Desktop)
+            0x09, 0x04,                    # USAGE (Joystick)
+            0xa1, 0x01,                    # COLLECTION (Application)
+            0x85, 0x01,                    #   REPORT_ID (1)
+            0xa1, 0x00,                    #   COLLECTION (Physical)
+            0x09, 0x30,                    #     USAGE (X)
+            0x09, 0x31,                    #     USAGE (Y)
+            0x15, 0x81,                    #     LOGICAL_MINIMUM (-127)
+            0x25, 0x7f,                    #     LOGICAL_MAXIMUM (127)
+            0x75, 0x08,                    #     REPORT_SIZE (8)
+            0x95, 0x02,                    #     REPORT_COUNT (2)
+            0x81, 0x02,                    #     INPUT (Data,Var,Abs)
+            0x05, 0x09,                    #     USAGE_PAGE (Button)
+            0x29, 0x08,                    #     USAGE_MAXIMUM (Button 8)
+            0x19, 0x01,                    #     USAGE_MINIMUM (Button 1)
+            0x95, 0x08,                    #     REPORT_COUNT (8)
+            0x75, 0x01,                    #     REPORT_SIZE (1)
+            0x25, 0x01,                    #     LOGICAL_MAXIMUM (1)
+            0x15, 0x00,                    #     LOGICAL_MINIMUM (0)
+            0x81, 0x02,                    #     Input (Data, Variable, Absolute)
+            0xc0,                          #   END_COLLECTION
+            0xc0                           # END_COLLECTION
+        ])
+        # fmt: on
+
+        # Define the initial joystick state
+        self.x = 0
+        self.y = 0
+
+        self.button1 = 0
+        self.button2 = 0
+        self.button3 = 0
+        self.button4 = 0
+        self.button5 = 0
+        self.button6 = 0
+        self.button7 = 0
+        self.button8 = 0
+
+        self.services = [self.DIS, self.BAS, self.HIDS]  # List of service descriptions
+
+    def start(self):
+        super(Joystick, self).start()
+
+        print("Registering services")
+        # Register services and get read/write handles
+        handles = self._ble.gatts_register_services(self.services)
+        self.write_service_characteristics(handles)
+
+        # self.adv = Advertiser(self._ble, self.SERVICE_UUIDS, self.DEV_APPEARANCE, self.DEV_NAME)
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)
+
+        print("Server started")
+
+    def write_service_characteristics(self, handles):
+        super(Joystick, self).write_service_characteristics(handles)
+
+        # Get the handles from the hids, the third service
+        (h_info, h_hid, _, self.h_rep, h_d1, h_proto,) = handles[2]
+
+        # Pack the initial joystick state as described by the input report
+        b = self.button1 + self.button2 * 2 + self.button3 * 3 + self.button4 * 4
+        state = struct.pack("bbB", self.x, self.y, b)
+
+        print("Writing hid service characteristics")
+        # Write service characteristics
+        self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")     # HID info: ver=1.1, country=0, flags=normal
+        self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)    # HID input report map
+        self._ble.gatts_write(self.h_rep, state)               # HID report
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))  # HID reference: id=1, type=input
+        self._ble.gatts_write(h_proto, b"\x01")                # HID protocol mode: report
+
+    def notify_hid_report(self):
+        if self.is_connected():
+            # Pack the joystick state as described by the input report
+            b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
+            state = struct.pack("bbB", self.x, self.y, b)
+
+            print("Notify with report: ", struct.unpack("bbB", state))
+
+            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
+
+    def set_axes(self, x=0, y=0):
+        if x > 127:
+            x = 127
+        elif x < -127:
+            x = -127
+
+        if y > 127:
+            y = 127
+        elif y < -127:
+            y = -127
+
+        self.x = x
+        self.y = y
+
+    def set_buttons(self, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0, b7=0, b8=0):
+        self.button1 = b1
+        self.button2 = b2
+        self.button3 = b3
+        self.button4 = b4
+        self.button5 = b5
+        self.button6 = b6
+        self.button7 = b7
+        self.button8 = b8
+
 
