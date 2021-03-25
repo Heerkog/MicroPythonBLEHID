@@ -126,9 +126,7 @@ class Advertiser:
     def __init__(self, ble, services=[UUID(0x1812)], appearance=const(960), name="Generic HID Device"):
         self._ble = ble
         self._payload = self.advertising_payload(name=name, services=services, appearance=appearance)
-        print(self._payload)
-        print(self.decode_name(self._payload))
-        print(self.decode_services(self._payload))
+
         self.advertising = False
         print("Advertiser created")
 
@@ -145,7 +143,7 @@ class Advertiser:
             print("Stopped advertising")
 
 
-# Class that represents a general HID device state
+# Class that represents a general HID device services
 class HumanInterfaceDevice(object):
 
     def __init__(self, device_name="Generic HID Device"):
@@ -179,49 +177,61 @@ class HumanInterfaceDevice(object):
 
         self.HID_INPUT_REPORT = None
 
+    # Interrupt request callback function
     def ble_irq(self, event, data):
-        if event == _IRQ_CENTRAL_CONNECT:
-            self.conn_handle, _, _ = data
+        if event == _IRQ_CENTRAL_CONNECT:        # Central connected
+            self.conn_handle, _, _ = data        # Save the handle
             print("Central connected: ", self.conn_handle)
-            self.set_state(DEVICE_CONNECTED)
-        elif event == _IRQ_CENTRAL_DISCONNECT:
-            self.conn_handle = None
+            self.set_state(DEVICE_CONNECTED)     # (HIDS specification only allow one central to be connected)
+        elif event == _IRQ_CENTRAL_DISCONNECT:   # Central disconnected
+            self.conn_handle = None              # Discard old handle
             print("Central disconnected")
             self.set_state(DEVICE_IDLE)
-        elif event == _IRQ_MTU_EXCHANGED:
+        elif event == _IRQ_MTU_EXCHANGED:        # MTU was set
             print("MTU exchanged")
-        elif event == _IRQ_CONNECTION_UPDATE:
-            self.conn_handle, _, _, _, _ = data
+        elif event == _IRQ_CONNECTION_UPDATE:    # Connection parameters were updated
+            self.conn_handle, _, _, _, _ = data  # The new parameters
             print("Connection update")
         else:
             print("Unhandled IRQ event: ", event)
 
+    # Start the service
+    # Must be overwritten by subclass, and called in
+    # the overwritten function by using super(Subclass, self).start()
     def start(self):
         if self.device_state is DEVICE_STOPPED:
+            # Turn on BLE radio
             self._ble.active(1)
+            # Set interrupt request callback function
             self._ble.irq(self.ble_irq)
+            # Set GAP device name
             self._ble.config(gap_name=self.device_name)
 
             self.set_state(DEVICE_IDLE)
             print("BLE on")
 
+    # After registering the DIS and BAS services, write their characteristic values
+    # Must be overwritten by subclass, and called in
+    # the overwritten function by using
+    # super(Subclass, self).write_service_characteristics(handles)
     def write_service_characteristics(self, handles):
         print("Writing service characteristics")
 
+        # Get handles to service characteristics
+        # These correspond directly to self.DIS and sel.BAS
         (h_pnp,) = handles[0]
         (self.h_bat,) = handles[1]
 
-        # Write service data
-
+        # Write service characteristics
         print("Writing device information service characteristics")
         # PnP id: source: BT, vendor: Microsoft, product id: 1, version 0.0.1
-        # self._ble.gatts_write(h_pnp, b"\x01\xFE\xB2\x00\x01\x00\x01")
         self._ble.gatts_write(h_pnp, struct.pack("<6B", 0x01, 0xFEB2, 1, 0x01, 0x01))
 
         print("Writing battery service characteristics")
         # Battery level
         self._ble.gatts_write(self.h_bat, struct.pack("<B", self.battery_level))
 
+    # Stop the service
     def stop(self):
         if self.device_state is not DEVICE_STOPPED:
             if self.device_state is DEVICE_ADVERTISING:
@@ -240,6 +250,7 @@ class HumanInterfaceDevice(object):
     def is_advertising(self):
         return self.device_state is DEVICE_ADVERTISING
 
+    # Set a new state and notify the user's callback function
     def set_state(self, state):
         self.device_state = state
         if self.state_change_callback is not None:
@@ -248,6 +259,11 @@ class HumanInterfaceDevice(object):
     def get_state(self):
         return self.device_state
 
+    # Set a callback function to get notifications of state changes, i.e.
+    # - Device stopped
+    # - Device idle
+    # - Device advertising
+    # - Device connected
     def set_state_change_callback(self, callback):
         self.state_change_callback = callback
 
@@ -274,6 +290,7 @@ class HumanInterfaceDevice(object):
     def get_battery_level(self):
         return self.battery_level
 
+    # Sets the value for the battery level
     def set_battery_level(self, level):
         if level > 100:
             self.battery_level = 100
@@ -282,28 +299,31 @@ class HumanInterfaceDevice(object):
         else:
             self.battery_level = level
 
+    # Notifies the central by writing to the battery level handle
     def notify_battery_level(self):
         if self.is_connected():
             print("Notify battery level: ", self.battery_level)
             self._ble.gatts_notify(self.conn_handle, self.h_bat, struct.pack("<B", self.battery_level))
 
+    # Notifies the central of the HID state
+    # Must be overwritten by subclass
     def notify_hid_report(self):
         return
 
-# Class that represents the Joystick state
+# Class that represents the Joystick service
 class Joystick(HumanInterfaceDevice):
     def __init__(self, name="Bluetooth Joystick"):
-        super(Joystick, self).__init__(name)
-        self.device_appearance = 963  # Device appearance ID, 963 = joystick
+        super(Joystick, self).__init__(name)  # Set up the general HID services in super
+        self.device_appearance = 963          # Device appearance ID, 963 = joystick
 
-        self.HIDS = (  # Service description: describes the service and how we communicate
-            UUID(0x1812),  # Human Interface Device
+        self.HIDS = (                         # Service description: describes the service and how we communicate
+            UUID(0x1812),                     # Human Interface Device
             (
-                (UUID(0x2A4A), F_READ),  # HID information
-                (UUID(0x2A4B), F_READ),  # HID report map
-                (UUID(0x2A4C), F_WRITE),  # HID control point
+                (UUID(0x2A4A), F_READ),       # HID information
+                (UUID(0x2A4B), F_READ),       # HID report map
+                (UUID(0x2A4C), F_WRITE),      # HID control point
                 (UUID(0x2A4D), F_READ_NOTIFY, ((UUID(0x2908), ATT_F_READ),)),  # HID report / reference
-                (UUID(0x2A4E), F_READ_WRITE),  # HID protocol mode
+                (UUID(0x2A4E), F_READ_WRITE), # HID protocol mode
             ),
         )
 
@@ -349,27 +369,34 @@ class Joystick(HumanInterfaceDevice):
 
         self.services = [self.DIS, self.BAS, self.HIDS]  # List of service descriptions
 
+    # Overwrite super to register HID specific service
+    # Call super to register DIS and BAS services
     def start(self):
-        super(Joystick, self).start()
+        super(Joystick, self).start()  # Start super
 
         print("Registering services")
-        # Register services and get read/write handles
+        # Register services and get read/write handles for all services
         handles = self._ble.gatts_register_services(self.services)
+        # Write the values for the characteristics
         self.write_service_characteristics(handles)
 
-        # self.adv = Advertiser(self._ble, self.SERVICE_UUIDS, self.DEV_APPEARANCE, self.DEV_NAME)
+        # Create an Advertiser
+        # Only advertise the top level service, i.e., the HIDS
         self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)
 
         print("Server started")
 
+    # Overwrite super to write HID specific characteristics
+    # Call super to write DIS and BAS characteristics
     def write_service_characteristics(self, handles):
         super(Joystick, self).write_service_characteristics(handles)
 
-        # Get the handles from the hids, the third service
+        # Get the handles from the hids, the third service after DIS and BAS
+        # These correspond directly to self.HIDS
         (h_info, h_hid, _, self.h_rep, h_d1, h_proto,) = handles[2]
 
         # Pack the initial joystick state as described by the input report
-        b = self.button1 + self.button2 * 2 + self.button3 * 3 + self.button4 * 4
+        b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
         state = struct.pack("bbB", self.x, self.y, b)
 
         print("Writing hid service characteristics")
@@ -380,6 +407,7 @@ class Joystick(HumanInterfaceDevice):
         self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))  # HID reference: id=1, type=input
         self._ble.gatts_write(h_proto, b"\x01")                # HID protocol mode: report
 
+    # Overwrite super to notify central of a hid report
     def notify_hid_report(self):
         if self.is_connected():
             # Pack the joystick state as described by the input report
@@ -387,7 +415,7 @@ class Joystick(HumanInterfaceDevice):
             state = struct.pack("bbB", self.x, self.y, b)
 
             print("Notify with report: ", struct.unpack("bbB", state))
-
+            # Notify central by writing to the report handle
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
 
     def set_axes(self, x=0, y=0):
@@ -413,5 +441,3 @@ class Joystick(HumanInterfaceDevice):
         self.button6 = b6
         self.button7 = b7
         self.button8 = b8
-
-
