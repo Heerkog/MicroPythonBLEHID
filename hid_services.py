@@ -648,8 +648,8 @@ class Keyboard(HumanInterfaceDevice):
             # A client has written to this characteristic or descriptor.
             print("Keyboard changed by Central")
             conn_handle, attr_handle = data
-            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("8B", self._ble.gatts_read(attr_handle))
-            self.keys = [key0, key1, key2, key3, key4, key5]
+            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", self._ble.gatts_read(attr_handle))
+            # self.keys = [key0, key1, key2, key3, key4, key5]
         else:
             super(Keyboard, self).ble_irq(event, data)
 
@@ -691,8 +691,18 @@ class Keyboard(HumanInterfaceDevice):
     def notify_hid_report(self):
         if self.is_connected():
             # Pack the Keyboard state as described by the input report
-            state = struct.pack("8B", self.modifiers, 0, self.leds, self.keys[:6])
+            state = struct.pack("9B", self.modifiers, 0, self.leds, self.keys[:6])
 
-            print("Notify with report: ", struct.unpack("8B", state))
+            print("Notify with report: ", struct.unpack("9B", state))
             # Notify central by writing to the report handle
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
+
+    # Set the modifier bits
+    def set_modifiers(self, right_gui=0, right_alt=0, right_shift=0, right_control=0, left_gui=0, left_alt=0, left_shift=0, left_control=0):
+        self.modifiers = right_gui << 7 + right_alt << 6 + right_shift << 5 + right_control << 4 + left_gui << 3 + left_alt << 2 + left_shift << 1 + left_control
+
+    def set_leds(self, l0=0, l1=0, l2=0, l3=0, l4=0):
+        self.leds = l0 + l1 << 1 + l2 << 2 + l3 << 3 + l4 << 4
+
+    def set_keys(self, k0=0, k1=0, k2=0, k3=0, k4=0, k5=0):
+        self.keys = [k0, k1, k2, k3, k4, k5]
