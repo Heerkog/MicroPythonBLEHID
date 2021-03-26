@@ -441,3 +441,140 @@ class Joystick(HumanInterfaceDevice):
         self.button6 = b6
         self.button7 = b7
         self.button8 = b8
+
+
+# Class that represents the Mouse service
+class Mouse(HumanInterfaceDevice):
+    def __init__(self, name="Bluetooth Mouse"):
+        super(Mouse, self).__init__(name)     # Set up the general HID services in super
+        self.device_appearance = 962          # Device appearance ID, 962 = mouse
+
+        self.HIDS = (                         # Service description: describes the service and how we communicate
+            UUID(0x1812),                     # Human Interface Device
+            (
+                (UUID(0x2A4A), F_READ),       # HID information
+                (UUID(0x2A4B), F_READ),       # HID report map
+                (UUID(0x2A4C), F_WRITE),      # HID control point
+                (UUID(0x2A4D), F_READ_NOTIFY, ((UUID(0x2908), ATT_F_READ),)),  # HID report / reference
+                (UUID(0x2A4E), F_READ_WRITE), # HID protocol mode
+            ),
+        )
+
+        # fmt: off
+        self.HID_INPUT_REPORT = bytes([    # Report Description: describes what we communicate
+            0x05, 0x01,                    # USAGE_PAGE (Generic Desktop)
+            0x09, 0x02,                    # USAGE (Mouse)
+            0xa1, 0x01,                    # COLLECTION (Application)
+            0x85, 0x01,                    #   REPORT_ID (1)
+            0xa1, 0x00,                    #   COLLECTION (Physical)
+            0x95, 0x03,                    #         Report Count (3)
+            0x75, 0x01,                    #         Report Size (1)
+            0x05, 0x09,                    #         Usage Page (Buttons)
+            0x19, 0x01,                    #         Usage Minimum (1)
+            0x29, 0x03,                    #         Usage Maximum (3)
+            0x15, 0x00,                    #         Logical Minimum (0)
+            0x25, 0x01,                    #         Logical Maximum (1)
+            0x81, 0x02,                    #         Input(Data, Variable, Absolute); 3 button bits
+            0x95, 0x01,                    #         Report Count(1)
+            0x75, 0x05,                    #         Report Size(5)
+            0x81, 0x01,                    #         Input(Constant);                 5 bit padding
+            0x75, 0x08,                    #         Report Size (8)
+            0x95, 0x02,                    #         Report Count (3)
+            0x05, 0x01,                    #         Usage Page (Generic Desktop)
+            0x09, 0x30,                    #         Usage (X)
+            0x09, 0x31,                    #         Usage (Y)
+            0x09, 0x38,                    #         Usage (Wheel)
+            0x15, 0x81,                    #         Logical Minimum (-127)
+            0x25, 0x7F,                    #         Logical Maximum (127)
+            0x81, 0x06,                    #         Input(Data, Variable, Relative); 3 position bytes (X,Y,Wheel)
+            0xc0,                          #   END_COLLECTION
+            0xc0                           # END_COLLECTION
+        ])
+        # fmt: on
+
+        # Define the initial mouse state
+        self.x = 0
+        self.y = 0
+        self.w = 0
+
+        self.button1 = 0
+        self.button2 = 0
+        self.button3 = 0
+
+        self.services = [self.DIS, self.BAS, self.HIDS]  # List of service descriptions
+
+    # Overwrite super to register HID specific service
+    # Call super to register DIS and BAS services
+    def start(self):
+        super(Mouse, self).start()  # Start super
+
+        print("Registering services")
+        # Register services and get read/write handles for all services
+        handles = self._ble.gatts_register_services(self.services)
+        # Write the values for the characteristics
+        self.write_service_characteristics(handles)
+
+        # Create an Advertiser
+        # Only advertise the top level service, i.e., the HIDS
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)
+
+        print("Server started")
+
+    # Overwrite super to write HID specific characteristics
+    # Call super to write DIS and BAS characteristics
+    def write_service_characteristics(self, handles):
+        super(Mouse, self).write_service_characteristics(handles)
+
+        # Get the handles from the hids, the third service after DIS and BAS
+        # These correspond directly to self.HIDS
+        (h_info, h_hid, _, self.h_rep, h_d1, h_proto,) = handles[2]
+
+        # Pack the initial mouse state as described by the input report
+        b = self.button1 + self.button2 * 2 + self.button3
+        state = struct.pack("Bbbb", b, self.x, self.y, self.w)
+
+        print("Writing hid service characteristics")
+        # Write service characteristics
+        self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")     # HID info: ver=1.1, country=0, flags=normal
+        self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)    # HID input report map
+        self._ble.gatts_write(self.h_rep, state)               # HID report
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))  # HID reference: id=1, type=input
+        self._ble.gatts_write(h_proto, b"\x01")                # HID protocol mode: report
+
+    # Overwrite super to notify central of a hid report
+    def notify_hid_report(self):
+        if self.is_connected():
+            # Pack the mouse state as described by the input report
+            b = self.button1 + self.button2 * 2 + self.button3
+            state = struct.pack("Bbbb", b, self.x, self.y, self.w)
+
+            print("Notify with report: ", struct.unpack("bbB", state))
+            # Notify central by writing to the report handle
+            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
+
+    def set_axes(self, x=0, y=0):
+        if x > 127:
+            x = 127
+        elif x < -127:
+            x = -127
+
+        if y > 127:
+            y = 127
+        elif y < -127:
+            y = -127
+
+        self.x = x
+        self.y = y
+
+    def set_wheel(self, w=0):
+        if w > 127:
+            w = 127
+        elif w < -127:
+            w = -127
+
+        self.w = w
+
+    def set_buttons(self, b1=0, b2=0, b3=0):
+        self.button1 = b1
+        self.button2 = b2
+        self.button3 = b3
