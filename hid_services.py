@@ -442,7 +442,6 @@ class Joystick(HumanInterfaceDevice):
         self.button7 = b7
         self.button8 = b8
 
-
 # Class that represents the Mouse service
 class Mouse(HumanInterfaceDevice):
     def __init__(self, name="Bluetooth Mouse"):
@@ -548,7 +547,7 @@ class Mouse(HumanInterfaceDevice):
             b = self.button1 + self.button2 * 2 + self.button3
             state = struct.pack("Bbbb", b, self.x, self.y, self.w)
 
-            print("Notify with report: ", struct.unpack("bbB", state))
+            print("Notify with report: ", struct.unpack("Bbbb", state))
             # Notify central by writing to the report handle
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
 
@@ -578,3 +577,122 @@ class Mouse(HumanInterfaceDevice):
         self.button1 = b1
         self.button2 = b2
         self.button3 = b3
+
+# Class that represents the Keyboard service
+class Keyboard(HumanInterfaceDevice):
+    def __init__(self, name="Bluetooth Keyboard"):
+        super(Keyboard, self).__init__(name)  # Set up the general HID services in super
+        self.device_appearance = 961          # Device appearance ID, 961 = keyboard
+
+        self.HIDS = (                         # Service description: describes the service and how we communicate
+            UUID(0x1812),                     # Human Interface Device
+            (
+                (UUID(0x2A4A), F_READ),       # HID information
+                (UUID(0x2A4B), F_READ),       # HID report map
+                (UUID(0x2A4C), F_WRITE),      # HID control point
+                (UUID(0x2A4D), F_READ_NOTIFY, ((UUID(0x2908), ATT_F_READ),)),  # HID report / reference
+                (UUID(0x2A4D), F_READ_WRITE, ((UUID(0x2908), ATT_F_READ),)),  # HID report / reference
+                (UUID(0x2A4E), F_READ_WRITE), # HID protocol mode
+            ),
+        )
+
+        # fmt: off
+        self.HID_INPUT_REPORT = bytes([    # Report Description: describes what we communicate
+            0x05, 0x01,                    # USAGE_PAGE (Generic Desktop)
+            0x09, 0x06,                    # USAGE (Keyboard)
+            0xa1, 0x01,                    # COLLECTION (Application)
+            0x85, 0x01,                    #   REPORT_ID (1)
+            0x75, 0x01,                    #     Report Size (1)
+            0x95, 0x08,                    #     Report Count (8)
+            0x05, 0x07,                    #     Usage Page (Key Codes)
+            0x19, 0xE0,                    #     Usage Minimum (224)
+            0x29, 0xE7,                    #     Usage Maximum (231)
+            0x15, 0x00,                    #     Logical Minimum (0)
+            0x25, 0x01,                    #     Logical Maximum (1)
+            0x81, 0x02,                    #     Input (Data, Variable, Absolute); Modifier byte
+            0x95, 0x01,                    #     Report Count (1)
+            0x75, 0x08,                    #     Report Size (8)
+            0x81, 0x01,                    #     Input (Constant); Reserved byte
+            0x95, 0x05,                    #     Report Count (5)
+            0x75, 0x01,                    #     Report Size (1)
+            0x05, 0x08,                    #     Usage Page (LEDs)
+            0x19, 0x01,                    #     Usage Minimum (1)
+            0x29, 0x05,                    #     Usage Maximum (5)
+            0x91, 0x02,                    #     Output (Data, Variable, Absolute); LED report
+            0x95, 0x01,                    #     Report Count (1)
+            0x75, 0x03,                    #     Report Size (3)
+            0x91, 0x01,                    #     Output (Constant); LED report padding
+            0x95, 0x06,                    #     Report Count (6)
+            0x75, 0x08,                    #     Report Size (8)
+            0x15, 0x00,                    #     Logical Minimum (0)
+            0x25, 0x65,                    #     Logical Maximum (101)
+            0x05, 0x07,                    #     Usage Page (Key Codes)
+            0x19, 0x00,                    #     Usage Minimum (0)
+            0x29, 0x65,                    #     Usage Maximum (101)
+            0x81, 0x00,                    #     Input (Data, Array); Key array (6 bytes)
+            0xc0                           # END_COLLECTION
+        ])
+        # fmt: on
+
+        # Define the initial keyboard state
+        self.modifiers = 0       # 8 bits signifying Right GUI(Win/Command), Right ALT, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
+        self.leds = 0            # Led status lights
+        self.keys = [0x00] * 6   # 6 keys to hold
+
+        self.services = [self.DIS, self.BAS, self.HIDS]  # List of service descriptions
+
+    # Overwrite super to catch write events
+    # Interrupt request callback function
+    def ble_irq(self, event, data):
+        if event == _IRQ_GATTS_WRITE:
+            # A client has written to this characteristic or descriptor.
+            print("Central changed keys")
+            conn_handle, attr_handle = data
+            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("8B", self._ble.gatts_read(attr_handle))
+            self.keys = [key0, key1, key2, key3, key4, key5]
+        else:
+            super(Keyboard, self).ble_irq(event, data)
+
+    # Overwrite super to register HID specific service
+    # Call super to register DIS and BAS services
+    def start(self):
+        super(Keyboard, self).start()  # Start super
+
+        print("Registering services")
+        # Register services and get read/write handles for all services
+        handles = self._ble.gatts_register_services(self.services)
+        # Write the values for the characteristics
+        self.write_service_characteristics(handles)
+
+        # Create an Advertiser
+        # Only advertise the top level service, i.e., the HIDS
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)
+
+        print("Server started")
+
+    # Overwrite super to write HID specific characteristics
+    # Call super to write DIS and BAS characteristics
+    def write_service_characteristics(self, handles):
+        super(Keyboard, self).write_service_characteristics(handles)
+
+        # Get the handles from the hids, the third service after DIS and BAS
+        # These correspond directly to self.HIDS
+        (h_info, h_hid, _, self.h_rep, h_d1, self.h_repout, h_d2, h_proto,) = handles[2]
+
+        print("Writing hid service characteristics")
+        # Write service characteristics
+        self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")     # HID info: ver=1.1, country=0, flags=normal
+        self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)    # HID input report map
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))  # HID reference: id=1, type=input
+        self._ble.gatts_write(h_d2, struct.pack("<BB", 1, 2))  # HID reference: id=1, type=output
+        self._ble.gatts_write(h_proto, b"\x01")                # HID protocol mode: report
+
+    # Overwrite super to notify central of a hid report
+    def notify_hid_report(self):
+        if self.is_connected():
+            # Pack the Keyboard state as described by the input report
+            state = struct.pack("8B", self.modifiers, 0, self.leds, self.keys[:6])
+
+            print("Notify with report: ", struct.unpack("8B", state))
+            # Notify central by writing to the report handle
+            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
