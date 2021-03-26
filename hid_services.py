@@ -635,7 +635,7 @@ class Keyboard(HumanInterfaceDevice):
         # fmt: on
 
         # Define the initial keyboard state
-        self.modifiers = 0       # 8 bits signifying Right GUI(Win/Command), Right ALT, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
+        self.modifiers = 0       # 8 bits signifying Right GUI(Win/Command), Right ALT/Option, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
         self.leds = 0            # Led status lights
         self.keys = [0x00] * 6   # 6 keys to hold
 
@@ -646,7 +646,7 @@ class Keyboard(HumanInterfaceDevice):
     def ble_irq(self, event, data):
         if event == _IRQ_GATTS_WRITE:
             # A client has written to this characteristic or descriptor.
-            print("Central changed keys")
+            print("Keyboard changed by Central")
             conn_handle, attr_handle = data
             (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("8B", self._ble.gatts_read(attr_handle))
             self.keys = [key0, key1, key2, key3, key4, key5]
