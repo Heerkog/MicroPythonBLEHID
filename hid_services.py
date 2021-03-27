@@ -647,13 +647,14 @@ class Keyboard(HumanInterfaceDevice):
     # Interrupt request callback function
     # Overwrite super to catch keyboard report write events by the central
     def ble_irq(self, event, data):
-        if event == _IRQ_GATTS_WRITE:               # If a client has written to a characteristic or descriptor.
+        if event == _IRQ_GATTS_WRITE:                   # If a client has written to a characteristic or descriptor.
             print("Keyboard changed by Central")
-            conn_handle, attr_handle = data         # Get the handle to the characteristic that was written
-            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", self._ble.gatts_read(attr_handle))  # Unpack the report
-            if self.kb_callback is not None:        # Call the callback function
+            conn_handle, attr_handle = data             # Get the handle to the characteristic that was written
+            report = self._ble.gatts_read(attr_handle)  # Read the report
+            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", report)  # Unpack the report
+            if self.kb_callback is not None:            # Call the callback function
                 self.kb_callback(self.modifiers, self.leds, key0, key1, key2, key3, key4, key5)
-        else:                                       # Else let super handle the event
+        else:                                           # Else let super handle the event
             super(Keyboard, self).ble_irq(event, data)
 
     # Overwrite super to register HID specific service
