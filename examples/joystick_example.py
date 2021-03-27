@@ -67,7 +67,6 @@ class Device:
                 if self.joystick.get_state() is DEVICE_CONNECTED:
                     self.joystick.set_axes(self.x, self.y)
                     self.joystick.notify_hid_report()
-                    time.sleep_ms(20)
                 elif self.joystick.get_state() is DEVICE_IDLE:
                     self.joystick.start_advertising()
                     i = 10
@@ -76,6 +75,9 @@ class Device:
                         i -= 1
                     if self.joystick.get_state() is DEVICE_ADVERTISING:
                         self.joystick.stop_advertising()
+
+            if self.joystick.get_state() is DEVICE_CONNECTED:
+                time.sleep_ms(20)
             else:
                 time.sleep(2)
 

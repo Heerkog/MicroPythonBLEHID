@@ -67,7 +67,6 @@ class Device:
                 if self.mouse.get_state() is DEVICE_CONNECTED:
                     self.mouse.set_axes(self.x, self.y)
                     self.mouse.notify_hid_report()
-                    time.sleep_ms(20)
                 elif self.mouse.get_state() is DEVICE_IDLE:
                     self.mouse.start_advertising()
                     i = 10
@@ -76,6 +75,9 @@ class Device:
                         i -= 1
                     if self.mouse.get_state() is DEVICE_ADVERTISING:
                         self.mouse.stop_advertising()
+
+            if self.mouse.get_state() is DEVICE_CONNECTED:
+                time.sleep_ms(20)
             else:
                 time.sleep(2)
 

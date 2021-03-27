@@ -82,7 +82,6 @@ class Device:
                 if self.keyboard.get_state() is DEVICE_CONNECTED:
                     self.keyboard.set_keys(self.key0, self.key1, self.key2, self.key3)
                     self.keyboard.notify_hid_report()
-                    time.sleep_ms(20)
                 elif self.keyboard.get_state() is DEVICE_IDLE:
                     self.keyboard.start_advertising()
                     i = 10
@@ -91,6 +90,9 @@ class Device:
                         i -= 1
                     if self.keyboard.get_state() is DEVICE_ADVERTISING:
                         self.keyboard.stop_advertising()
+
+            if self.keyboard.get_state() is DEVICE_CONNECTED:
+                time.sleep_ms(20)
             else:
                 time.sleep(2)
 
