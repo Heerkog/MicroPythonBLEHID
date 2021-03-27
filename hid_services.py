@@ -639,18 +639,21 @@ class Keyboard(HumanInterfaceDevice):
         self.leds = 0            # Led status lights
         self.keys = [0x00] * 6   # 6 keys to hold
 
+        # Callback function for keyboard messages from central
+        self.kb_callback = None
+
         self.services = [self.DIS, self.BAS, self.HIDS]  # List of service descriptions
 
-    # Overwrite super to catch write events
     # Interrupt request callback function
+    # Overwrite super to catch keyboard report write events by the central
     def ble_irq(self, event, data):
-        if event == _IRQ_GATTS_WRITE:
-            # A client has written to this characteristic or descriptor.
+        if event == _IRQ_GATTS_WRITE:               # If a client has written to a characteristic or descriptor.
             print("Keyboard changed by Central")
-            conn_handle, attr_handle = data
-            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", self._ble.gatts_read(attr_handle))
-            # self.keys = [key0, key1, key2, key3, key4, key5]
-        else:
+            conn_handle, attr_handle = data         # Get the handle to the characteristic that was written
+            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", self._ble.gatts_read(attr_handle))  # Unpack the report
+            if self.kb_callback is not None:        # Call the callback function
+                self.kb_callback(self.modifiers, self.leds, key0, key1, key2, key3, key4, key5)
+        else:                                       # Else let super handle the event
             super(Keyboard, self).ble_irq(event, data)
 
     # Overwrite super to register HID specific service
@@ -697,12 +700,20 @@ class Keyboard(HumanInterfaceDevice):
             # Notify central by writing to the report handle
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
 
-    # Set the modifier bits
+    # Set the modifier bits, notify to send the modifiers to central
     def set_modifiers(self, right_gui=0, right_alt=0, right_shift=0, right_control=0, left_gui=0, left_alt=0, left_shift=0, left_control=0):
         self.modifiers = right_gui << 7 + right_alt << 6 + right_shift << 5 + right_control << 4 + left_gui << 3 + left_alt << 2 + left_shift << 1 + left_control
 
+    # Set the leds, notify to send the leds to central
     def set_leds(self, l0=0, l1=0, l2=0, l3=0, l4=0):
         self.leds = l0 + l1 << 1 + l2 << 2 + l3 << 3 + l4 << 4
 
-    def set_keys(self, k0=0, k1=0, k2=0, k3=0, k4=0, k5=0):
+    # Press keys, notify to send the keys to central
+    # This will hold down the keys, call set_keys() without arguments and notify again to release
+    def set_keys(self, k0=0x00, k1=0x00, k2=0x00, k3=0x00, k4=0x00, k5=0x00):
         self.keys = [k0, k1, k2, k3, k4, k5]
+
+    # Set a callback function that gets notified on keyboard changes
+    # Should take 8 arguments: modifiers, leds, key0, key1, key2, key3, key4, key5
+    def set_kb_callback(self, kb_callback):
+        self.kb_callback = kb_callback
