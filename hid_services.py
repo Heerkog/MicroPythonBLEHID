@@ -601,7 +601,7 @@ class Keyboard(HumanInterfaceDevice):
             0x05, 0x01,                    # USAGE_PAGE (Generic Desktop)
             0x09, 0x06,                    # USAGE (Keyboard)
             0xa1, 0x01,                    # COLLECTION (Application)
-            0x85, 0x01,                    #   REPORT_ID (1)
+            0x85, 0x01,                    #     REPORT_ID (1)
             0x75, 0x01,                    #     Report Size (1)
             0x95, 0x08,                    #     Report Count (8)
             0x05, 0x07,                    #     Usage Page (Key Codes)
@@ -651,7 +651,7 @@ class Keyboard(HumanInterfaceDevice):
             print("Keyboard changed by Central")
             conn_handle, attr_handle = data             # Get the handle to the characteristic that was written
             report = self._ble.gatts_read(attr_handle)  # Read the report
-            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("9B", report)  # Unpack the report
+            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("B", report)  # Unpack the report
             if self.kb_callback is not None:            # Call the callback function
                 self.kb_callback(self.modifiers, self.leds, key0, key1, key2, key3, key4, key5)
         else:                                           # Else let super handle the event
@@ -695,19 +695,15 @@ class Keyboard(HumanInterfaceDevice):
     def notify_hid_report(self):
         if self.is_connected():
             # Pack the Keyboard state as described by the input report
-            state = struct.pack("9B", self.modifiers, 0, self.leds, self.keys[0], self.keys[1], self.keys[2], self.keys[3], self.keys[4], self.keys[5])
+            state = struct.pack("8B", self.modifiers, 0, self.keys[0], self.keys[1], self.keys[2], self.keys[3], self.keys[4], self.keys[5])
 
-            print("Notify with report: ", struct.unpack("9B", state))
+            print("Notify with report: ", struct.unpack("8B", state))
             # Notify central by writing to the report handle
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)
 
     # Set the modifier bits, notify to send the modifiers to central
     def set_modifiers(self, right_gui=0, right_alt=0, right_shift=0, right_control=0, left_gui=0, left_alt=0, left_shift=0, left_control=0):
-        self.modifiers = right_gui << 7 + right_alt << 6 + right_shift << 5 + right_control << 4 + left_gui << 3 + left_alt << 2 + left_shift << 1 + left_control
-
-    # Set the leds, notify to send the leds to central
-    def set_leds(self, l0=0, l1=0, l2=0, l3=0, l4=0):
-        self.leds = l0 + l1 << 1 + l2 << 2 + l3 << 3 + l4 << 4
+        self.modifiers = (right_gui << 7) + (right_alt << 6) + (right_shift << 5) + (right_control << 4) + (left_gui << 3) + (left_alt << 2) + (left_shift << 1) + left_control
 
     # Press keys, notify to send the keys to central
     # This will hold down the keys, call set_keys() without arguments and notify again to release

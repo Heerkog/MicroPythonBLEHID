@@ -1,5 +1,5 @@
-#MicroPython Human Interface Device package
+## MicroPython Human Interface Device package (WIP)
 
+- Keyboard (Operational)
 - Joystick (Operational)
 - Mouse (WIP)
-- Keyboard (WIP)

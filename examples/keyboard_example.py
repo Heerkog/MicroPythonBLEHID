@@ -96,6 +96,32 @@ class Device:
             else:
                 time.sleep(2)
 
+    def send_char(self, char):
+        if char == " ":
+            mod = 0
+            code = 0x2C
+        elif ord("a") <= ord(char) <= ord("z"):
+            mod = 0
+            code = 0x04 + ord(char) - ord("a")
+        elif ord("A") <= ord(char) <= ord("Z"):
+            mod = 1
+            code = 0x04 + ord(char) - ord("A")
+        else:
+            assert 0
+
+        self.keyboard.set_keys(code)
+        self.keyboard.set_modifiers(left_shift=mod)
+        self.keyboard.notify_hid_report()
+
+        self.keyboard.set_keys()
+        self.keyboard.set_modifiers()
+        self.keyboard.notify_hid_report()
+
+
+    def send_string(self, st):
+        for c in st:
+            self.send_char(c)
+
     # Only for test
     def stop(self):
         self.keyboard.stop()
@@ -106,44 +132,45 @@ class Device:
         self.keyboard.set_battery_level(50)
         self.keyboard.notify_battery_level()
 
-        for i in range(30):
-            # Press Shift+W
-            self.keyboard.set_keys(0x1A)
-            self.keyboard.set_modifiers(right_shift=1)
-            self.keyboard.notify_hid_report()
+        # Press Shift+W
+        self.keyboard.set_keys(0x1A)
+        self.keyboard.set_modifiers(right_shift=1)
+        self.keyboard.notify_hid_report()
 
-            # release
-            self.keyboard.set_keys()
-            self.keyboard.set_modifiers()
-            self.keyboard.notify_hid_report()
-            time.sleep_ms(500)
+        # release
+        self.keyboard.set_keys()
+        self.keyboard.set_modifiers()
+        self.keyboard.notify_hid_report()
+        time.sleep_ms(500)
 
-            # Press a
-            self.keyboard.set_keys(0x04)
-            self.keyboard.notify_hid_report()
+        # Press a
+        self.keyboard.set_keys(0x04)
+        self.keyboard.notify_hid_report()
 
-            # release
-            self.keyboard.set_keys()
-            self.keyboard.notify_hid_report()
-            time.sleep_ms(500)
+        # release
+        self.keyboard.set_keys()
+        self.keyboard.notify_hid_report()
+        time.sleep_ms(500)
 
-            # Press s
-            self.keyboard.set_keys(0x16)
-            self.keyboard.notify_hid_report()
+        # Press s
+        self.keyboard.set_keys(0x16)
+        self.keyboard.notify_hid_report()
 
-            # release
-            self.keyboard.set_keys()
-            self.keyboard.notify_hid_report()
-            time.sleep_ms(500)
+        # release
+        self.keyboard.set_keys()
+        self.keyboard.notify_hid_report()
+        time.sleep_ms(500)
 
-            # Press d
-            self.keyboard.set_keys(0x07)
-            self.keyboard.notify_hid_report()
+        # Press d
+        self.keyboard.set_keys(0x07)
+        self.keyboard.notify_hid_report()
 
-            # release
-            self.keyboard.set_keys()
-            self.keyboard.notify_hid_report()
-            time.sleep_ms(500)
+        # release
+        self.keyboard.set_keys()
+        self.keyboard.notify_hid_report()
+        time.sleep_ms(500)
+
+        self.send_string(" Hello World")
 
         self.keyboard.set_battery_level(100)
         self.keyboard.notify_battery_level()
