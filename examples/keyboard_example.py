@@ -42,8 +42,8 @@ class Device:
         else:
             return
 
-    def keyboard_event_callback(self, modifiers, leds, key0, key1, key2, key3, key4, key5):
-        print("Keyboard state callback with modifiers: ", modifiers, ", leds: ", leds)
+    def keyboard_event_callback(self, bytes):
+        print("Keyboard state callback with bytes: ", bytes)
 
     def advertise(self):
         self.keyboard.start_advertising()

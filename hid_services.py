@@ -465,6 +465,7 @@ class Mouse(HumanInterfaceDevice):
             0x09, 0x02,                    # USAGE (Mouse)
             0xa1, 0x01,                    # COLLECTION (Application)
             0x85, 0x01,                    #   REPORT_ID (1)
+            0x09, 0x01,                    #   USAGE (Pointer)
             0xa1, 0x00,                    #   COLLECTION (Physical)
             0x05, 0x09,                    #         Usage Page (Buttons)
             0x19, 0x01,                    #         Usage Minimum (1)
@@ -476,7 +477,7 @@ class Mouse(HumanInterfaceDevice):
             0x81, 0x02,                    #         Input(Data, Variable, Absolute); 3 button bits
             0x95, 0x01,                    #         Report Count(1)
             0x75, 0x05,                    #         Report Size(5)
-            0x81, 0x01,                    #         Input(Constant);                 5 bit padding
+            0x81, 0x03,                    #         Input(Constant);                 5 bit padding
             0x05, 0x01,                    #         Usage Page (Generic Desktop)
             0x09, 0x30,                    #         Usage (X)
             0x09, 0x31,                    #         Usage (Y)
@@ -484,7 +485,7 @@ class Mouse(HumanInterfaceDevice):
             0x15, 0x81,                    #         Logical Minimum (-127)
             0x25, 0x7F,                    #         Logical Maximum (127)
             0x75, 0x08,                    #         Report Size (8)
-            0x95, 0x02,                    #         Report Count (3)
+            0x95, 0x03,                    #         Report Count (3)
             0x81, 0x06,                    #         Input(Data, Variable, Relative); 3 position bytes (X,Y,Wheel)
             0xc0,                          #   END_COLLECTION
             0xc0                           # END_COLLECTION
@@ -651,9 +652,9 @@ class Keyboard(HumanInterfaceDevice):
             print("Keyboard changed by Central")
             conn_handle, attr_handle = data             # Get the handle to the characteristic that was written
             report = self._ble.gatts_read(attr_handle)  # Read the report
-            (self.modifiers, _, self.leds, key0, key1, key2, key3, key4, key5) = struct.unpack("B", report)  # Unpack the report
+            bytes = struct.unpack("B", report)          # Unpack the report
             if self.kb_callback is not None:            # Call the callback function
-                self.kb_callback(self.modifiers, self.leds, key0, key1, key2, key3, key4, key5)
+                self.kb_callback(bytes)
         else:                                           # Else let super handle the event
             super(Keyboard, self).ble_irq(event, data)
 
@@ -711,6 +712,6 @@ class Keyboard(HumanInterfaceDevice):
         self.keys = [k0, k1, k2, k3, k4, k5]
 
     # Set a callback function that gets notified on keyboard changes
-    # Should take 8 arguments: modifiers, leds, key0, key1, key2, key3, key4, key5
+    # Should take a tuple with the report bytes
     def set_kb_callback(self, kb_callback):
         self.kb_callback = kb_callback
