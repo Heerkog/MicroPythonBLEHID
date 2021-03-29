@@ -18,14 +18,7 @@
 # Implements a BLE HID keyboard
 import time
 from machine import SoftSPI, Pin
-from micropython import const
-import micropython
 from hid_services import Keyboard
-
-DEVICE_STOPPED = const(0)
-DEVICE_IDLE = const(1)
-DEVICE_ADVERTISING = const(2)
-DEVICE_CONNECTED = const(3)
 
 class Device:
     def __init__(self):
@@ -50,11 +43,11 @@ class Device:
 
     # Function that catches device status events
     def keyboard_state_callback(self):
-        if self.keyboard.get_state() is DEVICE_IDLE:
+        if self.keyboard.get_state() is Keyboard.DEVICE_IDLE:
             return
-        elif self.keyboard.get_state() is DEVICE_ADVERTISING:
+        elif self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
             return
-        elif self.keyboard.get_state() is DEVICE_CONNECTED:
+        elif self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
             return
         else:
             return
@@ -93,22 +86,22 @@ class Device:
                 self.key3 = 0x00
 
             # If the variables changed do something depending on the device state
-            if self.key0 is not 0x00 or self.key1 is not 0x00 or self.key2 is not 0x00 or self.key3 is not 0x00:
+            if self.key0 != 0x00 or self.key1 != 0x00 or self.key2 != 0x00 or self.key3 != 0x00:
                 # If connected set keys and notify
                 # If idle start advertising for 30s or until connected
-                if self.keyboard.get_state() is DEVICE_CONNECTED:
+                if self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
                     self.keyboard.set_keys(self.key0, self.key1, self.key2, self.key3)
                     self.keyboard.notify_hid_report()
-                elif self.keyboard.get_state() is DEVICE_IDLE:
+                elif self.keyboard.get_state() is Keyboard.DEVICE_IDLE:
                     self.keyboard.start_advertising()
                     i = 10
-                    while i > 0 and self.keyboard.get_state() is DEVICE_ADVERTISING:
+                    while i > 0 and self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
                         time.sleep(3)
                         i -= 1
-                    if self.keyboard.get_state() is DEVICE_ADVERTISING:
+                    if self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
                         self.keyboard.stop_advertising()
 
-            if self.keyboard.get_state() is DEVICE_CONNECTED:
+            if self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
                 time.sleep_ms(20)
             else:
                 time.sleep(2)

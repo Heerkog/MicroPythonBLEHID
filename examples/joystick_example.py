@@ -18,14 +18,7 @@
 # Implements a BLE HID joystick
 import time
 from machine import SoftSPI, Pin
-from micropython import const
-import micropython
 from hid_services import Joystick
-
-DEVICE_STOPPED = const(0)
-DEVICE_IDLE = const(1)
-DEVICE_ADVERTISING = const(2)
-DEVICE_CONNECTED = const(3)
 
 class Device:
     def __init__(self):
@@ -37,10 +30,10 @@ class Device:
         self.prev_y = 0
 
         # Define buttons
-        self.pin_forward = Pin(5, Pin.IN)
-        self.pin_reverse = Pin(23, Pin.IN)
-        self.pin_right = Pin(19, Pin.IN)
+        self.pin_forward = Pin(23, Pin.IN)
+        self.pin_reverse = Pin(19, Pin.IN)
         self.pin_left = Pin(18, Pin.IN)
+        self.pin_right = Pin(5, Pin.IN)
 
         # Create our device
         self.joystick = Joystick("Joystick")
@@ -51,11 +44,11 @@ class Device:
 
     # Function that catches device status events
     def joystick_state_callback(self):
-        if self.joystick.get_state() is DEVICE_IDLE:
+        if self.joystick.get_state() is Joystick.DEVICE_IDLE:
             return
-        elif self.joystick.get_state() is DEVICE_ADVERTISING:
+        elif self.joystick.get_state() is Joystick.DEVICE_ADVERTISING:
             return
-        elif self.joystick.get_state() is DEVICE_CONNECTED:
+        elif self.joystick.get_state() is Joystick.DEVICE_CONNECTED:
             return
         else:
             return
@@ -71,29 +64,29 @@ class Device:
         while True:
             # Read pin values and update variables
             self.x = self.pin_right.value() * 127 - self.pin_left.value() * 127
-            self.y = self.pin_forward.value() * 127 - self.pin_reverse.value() * 127
+            self.y = self.pin_reverse.value() * 127 - self.pin_forward.value() * 127
 
             # If the variables changed do something depending on the device state
-            if self.x is not self.prev_x or self.y is not self.prev_y:
+            if self.x != self.prev_x or self.y != self.prev_y:
                 # Update values
                 self.prev_x = self.x
                 self.prev_y = self.y
 
                 # If connected set axes and notify
                 # If idle start advertising for 30s or until connected
-                if self.joystick.get_state() is DEVICE_CONNECTED:
+                if self.joystick.get_state() is Joystick.DEVICE_CONNECTED:
                     self.joystick.set_axes(self.x, self.y)
                     self.joystick.notify_hid_report()
-                elif self.joystick.get_state() is DEVICE_IDLE:
+                elif self.joystick.get_state() is Joystick.DEVICE_IDLE:
                     self.joystick.start_advertising()
                     i = 10
-                    while i > 0 and self.joystick.get_state() is DEVICE_ADVERTISING:
+                    while i > 0 and self.joystick.get_state() is Joystick.DEVICE_ADVERTISING:
                         time.sleep(3)
                         i -= 1
-                    if self.joystick.get_state() is DEVICE_ADVERTISING:
+                    if self.joystick.get_state() is Joystick.DEVICE_ADVERTISING:
                         self.joystick.stop_advertising()
 
-            if self.joystick.get_state() is DEVICE_CONNECTED:
+            if self.joystick.get_state() is Joystick.DEVICE_CONNECTED:
                 time.sleep_ms(20)
             else:
                 time.sleep(2)

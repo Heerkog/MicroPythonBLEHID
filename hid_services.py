@@ -74,11 +74,6 @@ _IRQ_ENCRYPTION_UPDATE = const(28)
 _IRQ_GET_SECRET = const(29)
 _IRQ_SET_SECRET = const(30)
 
-DEVICE_STOPPED = const(0)
-DEVICE_IDLE = const(1)
-DEVICE_ADVERTISING = const(2)
-DEVICE_CONNECTED = const(3)
-
 class Advertiser:
 
     # Generate a payload to be passed to gap_advertise(adv_data=...).
@@ -162,11 +157,15 @@ class Advertiser:
 
 # Class that represents a general HID device services
 class HumanInterfaceDevice(object):
+    DEVICE_STOPPED = const(0)
+    DEVICE_IDLE = const(1)
+    DEVICE_ADVERTISING = const(2)
+    DEVICE_CONNECTED = const(3)
 
     def __init__(self, device_name="Generic HID Device"):
         self._ble = bluetooth.BLE()
         self.adv = None
-        self.device_state = DEVICE_STOPPED
+        self.device_state = HumanInterfaceDevice.DEVICE_STOPPED
         self.conn_handle = None
         self.state_change_callback = None
 
@@ -199,11 +198,11 @@ class HumanInterfaceDevice(object):
         if event == _IRQ_CENTRAL_CONNECT:        # Central connected
             self.conn_handle, _, _ = data        # Save the handle
             print("Central connected: ", self.conn_handle)
-            self.set_state(DEVICE_CONNECTED)     # (HIDS specification only allow one central to be connected)
+            self.set_state(HumanInterfaceDevice.DEVICE_CONNECTED)     # (HIDS specification only allow one central to be connected)
         elif event == _IRQ_CENTRAL_DISCONNECT:   # Central disconnected
             self.conn_handle = None              # Discard old handle
             print("Central disconnected")
-            self.set_state(DEVICE_IDLE)
+            self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
         elif event == _IRQ_MTU_EXCHANGED:        # MTU was set
             print("MTU exchanged")
         elif event == _IRQ_CONNECTION_UPDATE:    # Connection parameters were updated
@@ -216,7 +215,7 @@ class HumanInterfaceDevice(object):
     # Must be overwritten by subclass, and called in
     # the overwritten function by using super(Subclass, self).start()
     def start(self):
-        if self.device_state is DEVICE_STOPPED:
+        if self.device_state is HumanInterfaceDevice.DEVICE_STOPPED:
             # Turn on BLE radio
             self._ble.active(1)
             # Set interrupt request callback function
@@ -224,7 +223,7 @@ class HumanInterfaceDevice(object):
             # Set GAP device name
             self._ble.config(gap_name=self.device_name)
 
-            self.set_state(DEVICE_IDLE)
+            self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
             print("BLE on")
 
     # After registering the DIS and BAS services, write their characteristic values
@@ -250,22 +249,22 @@ class HumanInterfaceDevice(object):
 
     # Stop the service
     def stop(self):
-        if self.device_state is not DEVICE_STOPPED:
-            if self.device_state is DEVICE_ADVERTISING:
+        if self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED:
+            if self.device_state is HumanInterfaceDevice.DEVICE_ADVERTISING:
                 self.adv.stop_advertising()
             self._ble.active(0)
 
-            self.set_state(DEVICE_STOPPED)
+            self.set_state(HumanInterfaceDevice.DEVICE_STOPPED)
             print("Server stopped")
 
     def is_running(self):
-        return self.device_state is not DEVICE_STOPPED
+        return self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED
 
     def is_connected(self):
-        return self.device_state is DEVICE_CONNECTED
+        return self.device_state is HumanInterfaceDevice.DEVICE_CONNECTED
 
     def is_advertising(self):
-        return self.device_state is DEVICE_ADVERTISING
+        return self.device_state is HumanInterfaceDevice.DEVICE_ADVERTISING
 
     # Set a new state and notify the user's callback function
     def set_state(self, state):
@@ -285,15 +284,15 @@ class HumanInterfaceDevice(object):
         self.state_change_callback = callback
 
     def start_advertising(self):
-        if self.device_state is not DEVICE_STOPPED and self.device_state is not DEVICE_ADVERTISING:
+        if self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED and self.device_state is not HumanInterfaceDevice.DEVICE_ADVERTISING:
             self.adv.start_advertising()
-            self.set_state(DEVICE_ADVERTISING)
+            self.set_state(HumanInterfaceDevice.DEVICE_ADVERTISING)
 
     def stop_advertising(self):
-        if self.device_state is not DEVICE_STOPPED:
+        if self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED:
             self.adv.stop_advertising()
-            if self.device_state is not DEVICE_CONNECTED:
-                self.set_state(DEVICE_IDLE)
+            if self.device_state is not HumanInterfaceDevice.DEVICE_CONNECTED:
+                self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
 
     def get_device_name(self):
         return self.device_name
@@ -654,7 +653,6 @@ class Keyboard(HumanInterfaceDevice):
 
         # Define the initial keyboard state
         self.modifiers = 0       # 8 bits signifying Right GUI(Win/Command), Right ALT/Option, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
-        self.leds = 0            # Led status lights
         self.keys = [0x00] * 6   # 6 keys to hold
 
         # Callback function for keyboard messages from central
