@@ -176,9 +176,26 @@ class HumanInterfaceDevice(object):
         self.device_appearance = 960                                     # Generic HID Appearance
         self.battery_level = 100
 
+        self.model_number = "1"
+        self.serial_number = "1"
+        self.firmware_revision = "1"
+        self.hardware_revision = "1"
+        self.software_revision = "1"
+        self.manufacture_name = "Homebrew"
+        self.pnp_manufacturer_source = 0x01     # Bluetooth uuid list
+        self.pnp_manufacturer_uuid = 0xFE61     # 0xFEB2 for Microsoft, 0xFE61 for Logitech, 0xFD65 for Razer
+        self.pnp_product_id = 0x01              # ID 1
+        self.pnp_product_version = 0x0123       # Version 1.2.3
+
         self.DIS = (                            # Device Information Service description
             UUID(0x180A),                       # Device Information
             (
+                (UUID(0x2A24), F_READ),         # Model number string
+                (UUID(0x2A25), F_READ),         # Serial number string
+                (UUID(0x2A26), F_READ),         # Firmware revision string
+                (UUID(0x2A27), F_READ),         # Hardware revision string
+                (UUID(0x2A28), F_READ),         # Software revision string
+                (UUID(0x2A29), F_READ),         # Manufacturer name string
                 (UUID(0x2A50), F_READ),         # PnP ID
             ),
         )
@@ -235,13 +252,19 @@ class HumanInterfaceDevice(object):
 
         # Get handles to service characteristics
         # These correspond directly to self.DIS and sel.BAS
-        (h_pnp,) = handles[0]
+        (h_mod, h_ser, h_fwr, h_hwr, h_swr, h_man, h_pnp) = handles[0]
         (self.h_bat,) = handles[1]
 
         # Write service characteristics
         print("Writing device information service characteristics")
-        # PnP id: source: BT, vendor: Microsoft, product id: 1, version 0.0.1
-        self._ble.gatts_write(h_pnp, struct.pack("<6B", 0x01, 0xFEB2, 1, 0x01, 0x01))
+
+        self._ble.gatts_write(h_mod, struct.pack("s", self.model_number.encode('UTF-8')))
+        self._ble.gatts_write(h_ser, struct.pack("s", self.serial_number.encode('UTF-8')))
+        self._ble.gatts_write(h_fwr, struct.pack("s", self.firmware_revision.encode('UTF-8')))
+        self._ble.gatts_write(h_hwr, struct.pack("s", self.hardware_revision.encode('UTF-8')))
+        self._ble.gatts_write(h_swr, struct.pack("s", self.software_revision.encode('UTF-8')))
+        self._ble.gatts_write(h_man, struct.pack("s", self.manufacture_name.encode('UTF-8')))
+        self._ble.gatts_write(h_pnp, struct.pack("<B", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
 
         print("Writing battery service characteristics")
         # Battery level

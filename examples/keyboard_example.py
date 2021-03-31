@@ -86,7 +86,7 @@ class Device:
                 self.key3 = 0x00
 
             # If the variables changed do something depending on the device state
-            if self.key0 != 0x00 or self.key1 != 0x00 or self.key2 != 0x00 or self.key3 != 0x00:
+            if (self.key0 != 0x00) or (self.key1 != 0x00) or (self.key2 != 0x00) or (self.key3 != 0x00):
                 # If connected set keys and notify
                 # If idle start advertising for 30s or until connected
                 if self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
@@ -187,3 +187,4 @@ class Device:
 
 if __name__ == "__main__":
     d = Device()
+    d.start()

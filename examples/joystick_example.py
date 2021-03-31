@@ -67,7 +67,7 @@ class Device:
             self.y = self.pin_reverse.value() * 127 - self.pin_forward.value() * 127
 
             # If the variables changed do something depending on the device state
-            if self.x != self.prev_x or self.y != self.prev_y:
+            if (self.x != self.prev_x) or (self.y != self.prev_y):
                 # Update values
                 self.prev_x = self.x
                 self.prev_y = self.y
@@ -130,3 +130,4 @@ class Device:
 
 if __name__ == "__main__":
     d = Device()
+    d.start()
