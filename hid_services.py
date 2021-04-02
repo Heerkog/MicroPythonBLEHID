@@ -338,6 +338,35 @@ class HumanInterfaceDevice(object):
         else:
             self.battery_level = level
 
+    # Set device information
+    # Must be called before calling Start()
+    # Variables must be Strings
+    def set_device_information(self, manufacture_name="Homebrew", model_number="1", serial_number="1"):
+        self.manufacture_name = manufacture_name
+        self.model_number = model_number
+        self.serial_number = serial_number
+
+    # Set device revision
+    # Must be called before calling Start()
+    # Variables must be Strings
+    def set_device_revision(self, firmware_revision="1", hardware_revision="1", software_revision="1"):
+        self.firmware_revision = firmware_revision
+        self.hardware_revision = hardware_revision
+        self.software_revision = software_revision
+
+    # Set device pnp information
+    # Must be called before calling Start()
+    # Must use the following format:
+    #   pnp_manufacturer_source: 0x01 for manufacturers uuid from the Bluetooth uuid list OR 0x02 from the USBs id list
+    #   pnp_manufacturer_uuid: 0xFEB2 for Microsoft, 0xFE61 for Logitech, 0xFD65 for Razer with source 0x01
+    #   pnp_product_id: One byte, user defined
+    #   pnp_product_version: Two bytes, user defined, format as 0xJJMN which corresponds to version JJ.M.N
+    def set_device_pnp_information(self, pnp_manufacturer_source=0x01, pnp_manufacturer_uuid=0xFE61, pnp_product_id=0x01, pnp_product_version=0x0123):
+        self.pnp_manufacturer_source = pnp_manufacturer_source
+        self.pnp_manufacturer_uuid = pnp_manufacturer_uuid
+        self.pnp_product_id = pnp_product_id
+        self.pnp_product_version = pnp_product_version
+
     # Notifies the central by writing to the battery level handle
     def notify_battery_level(self):
         if self.is_connected():
