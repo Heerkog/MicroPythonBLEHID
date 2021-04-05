@@ -43,6 +43,7 @@ The library consists of five classes with the following functions:
   * `set_battery_level(level)` (Sets the battery level internally)
   * `notify_battery_level()` (Notifies the central of the current battery level. Call after setting battery level)
   * `notify_hid_report()` (Function for subclasses to override)
+  
 * `Joystick` (subclass of `HumanInterfaceDevice`, implements joystick service)
   * `__init__(name)` (Initialize the joystick)
   * `start()` (Starts the HID service using joystick characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -50,6 +51,7 @@ The library consists of five classes with the following functions:
   * `notify_hid_report()` (Notifies the central of the internal HID joystick status)
   * `set_axes(x, y)` (Sets the joystick axes internally)
   * `set_buttons(b1, b2, b3, b4, b5, b6, b7, b8)` (Sets the joystick buttons internally)
+  
 * `Mouse` (subclass of `HumanInterfaceDevice`, implements mouse service)
   * `__init__(name)` (Initialize the mouse)
   * `start()` (Starts the HID service using mouse characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -58,6 +60,7 @@ The library consists of five classes with the following functions:
   * `set_axes(x, y)` (Sets the mouse axes movement internally)
   * `set_wheel(w)` (Sets the mouse wheel movement internally)
   * `set_buttons(b1, b2, b3)` (Sets the mouse buttons internally)
+  
 * `Keyboard` (subclass of `HumanInterfaceDevice`, implements keyboard service)
   * `__init__(name)`  (Initialize the keyboard)
   * `start()` (Starts the HID service using keyboard characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -67,6 +70,7 @@ The library consists of five classes with the following functions:
   * `set_keys(k0, k1, k2, k3, k4, k5)` (Sets a list of key codes to press internally. Call without keys to release.)
   * `ble_irq(event, data)` (Internal callback function that catches BLE keyboard interrupt requests)
   * `set_kb_callback(kb_callback)` (Sets a callback function that is called on a keyboard event)
+  
 * `Advertiser` (from the [MicroPython Bluetooth examples](https://github.com/micropython/micropython), used internally by `HumanInterfaceDevice` class)
   * `__init__(ble, services, appearance, name)`
   * `advertising_payload(limited_disc, br_edr, name, services, appearance)`
