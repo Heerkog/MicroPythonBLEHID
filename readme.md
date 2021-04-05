@@ -12,16 +12,6 @@ Instead, the library is designed to offer basic well-documented classes that you
 For example, the Mouse class offers a three button mouse with vertical scroll wheel.
 If you plan on developing a gaming mouse with eight buttons and both vertical and horizontal wheels, you will need to extend the Mouse class and overwrite the required functions to include a new HID report descriptor.  
 
-### Library structure
-The library is structured as followed:
-
-* examples
-    * joystick_example.py
-    * keyboard_example.py
-    * mouse_example.py
-* hid_services.py
-* readme.md
-
 ### Library functionality
 The library offers functionality for creating HID services, advertising them, and setting and notifying the central of HID events.
 The library does not offer functionality to, for example, send a string of characters to the central using the keyboard service (eventhough this is included in the keyboard example).
@@ -29,14 +19,6 @@ The reason for this is that such functionality is entirely dependent on the inte
 
 The library consists of five classes with the following functions:
 
-* `Advertiser` (from the [MicroPython Bluetooth examples](https://github.com/micropython/micropython), used internally by `HumanInterfaceDevice` class)
-  * `__init__(ble, services, appearance, name)`
-  * `advertising_payload(limited_disc, br_edr, name, services, appearance)`
-  * `decode_field(payload, adv_type)`
-  * `decode_name(payload)`
-  * `decode_services(payload)`
-  * `start_advertising()` (Used internally)
-  * `stop_advertising()` (Used internally)
 * `HumanInterfaceDevice` (superclass for the HID service classes, implements the Device Information and Battery services, and sets up BLE and advertisement)
   * `__init__(device_name)` (Initialize the superclass)
   * `ble_irq(event, data)` (Internal callback function that catches BLE interrupt requests)
@@ -85,3 +67,36 @@ The library consists of five classes with the following functions:
   * `set_keys(k0, k1, k2, k3, k4, k5)` (Sets a list of key codes to press internally. Call without keys to release.)
   * `ble_irq(event, data)` (Internal callback function that catches BLE keyboard interrupt requests)
   * `set_kb_callback(kb_callback)` (Sets a callback function that is called on a keyboard event)
+* `Advertiser` (from the [MicroPython Bluetooth examples](https://github.com/micropython/micropython), used internally by `HumanInterfaceDevice` class)
+  * `__init__(ble, services, appearance, name)`
+  * `advertising_payload(limited_disc, br_edr, name, services, appearance)`
+  * `decode_field(payload, adv_type)`
+  * `decode_name(payload)`
+  * `decode_services(payload)`
+  * `start_advertising()` (Used internally)
+  * `stop_advertising()` (Used internally)
+
+### Resources
+The following resources were of interest during development:
+
+* Bluetooth HID
+  * [Bluetooth Low Energy Specifications](https://www.bluetooth.com/specifications/specs/)
+  * [Bluetooth assigned numbers list](https://www.bluetooth.com/specifications/assigned-numbers/)
+  * [Bluetooth device class list](http://domoticx.com/bluetooth-class-of-device-lijst-cod/)
+* USB HID
+  * [USB HID specification](https://www.usb.org/document-library/device-class-definition-hid-111)
+  * [USB report descriptor tool](https://www.usb.org/document-library/hid-descriptor-tool)
+  * [USB HID report descriptor tutorial](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/)
+* Micropython
+  * [Bluetooth examples](https://github.com/micropython/micropython/tree/master/examples/bluetooth)
+  * [BLE HID examples](https://github.com/micropython/micropython/pull/6559)
+
+### Library structure
+The library is structured as followed:
+
+* `examples/`
+  * `joystick_example.py`
+  * `keyboard_example.py`
+  * `mouse_example.py`
+* `hid_services.py`
+* `readme.md`
