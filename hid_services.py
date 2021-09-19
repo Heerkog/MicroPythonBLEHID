@@ -18,6 +18,8 @@
 from micropython import const
 import struct
 import bluetooth
+import json
+import binascii
 from bluetooth import UUID
 
 F_READ = bluetooth.FLAG_READ
@@ -73,6 +75,17 @@ _IRQ_CONNECTION_UPDATE = const(27)
 _IRQ_ENCRYPTION_UPDATE = const(28)
 _IRQ_GET_SECRET = const(29)
 _IRQ_SET_SECRET = const(30)
+_IRQ_PASSKEY_ACTION = const(31)
+
+_IO_CAPABILITY_DISPLAY_ONLY = const(0)
+_IO_CAPABILITY_DISPLAY_YESNO = const(1)
+_IO_CAPABILITY_KEYBOARD_ONLY = const(2)
+_IO_CAPABILITY_NO_INPUT_OUTPUT = const(3)
+_IO_CAPABILITY_KEYBOARD_DISPLAY = const(4)
+
+_PASSKEY_ACTION_INPUT = const(2)
+_PASSKEY_ACTION_DISP = const(3)
+_PASSKEY_ACTION_NUMCMP = const(4)
 
 class Advertiser:
 
@@ -168,6 +181,7 @@ class HumanInterfaceDevice(object):
         self.device_state = HumanInterfaceDevice.DEVICE_STOPPED
         self.conn_handle = None
         self.state_change_callback = None
+        self.io_capability = _IO_CAPABILITY_NO_INPUT_OUTPUT
 
         print("Server created")
 
@@ -210,33 +224,110 @@ class HumanInterfaceDevice(object):
 
         self.HID_INPUT_REPORT = None
 
+        # Passkey for pairing
+        # Only used when io capability allows so
+        self.passkey = 1234
+
+        # Key store for bonding
+        self.keys = {}
+
+        # Load known keys
+        self.load_secrets()
+
     # Interrupt request callback function
     def ble_irq(self, event, data):
-        if event == _IRQ_CENTRAL_CONNECT:        # Central connected
-            self.conn_handle, _, _ = data        # Save the handle
+        if event == _IRQ_CENTRAL_CONNECT:              # Central connected
+            self.conn_handle, _, _ = data              # Save the handle
             print("Central connected: ", self.conn_handle)
             self.set_state(HumanInterfaceDevice.DEVICE_CONNECTED)     # (HIDS specification only allow one central to be connected)
-        elif event == _IRQ_CENTRAL_DISCONNECT:   # Central disconnected
-            self.conn_handle = None              # Discard old handle
+        elif event == _IRQ_CENTRAL_DISCONNECT:         # Central disconnected
+            self.conn_handle = None                    # Discard old handle
             print("Central disconnected")
             self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
-        elif event == _IRQ_MTU_EXCHANGED:        # MTU was set
+        elif event == _IRQ_MTU_EXCHANGED:              # MTU was set
             print("MTU exchanged")
-        elif event == _IRQ_CONNECTION_UPDATE:    # Connection parameters were updated
-            self.conn_handle, _, _, _, _ = data  # The new parameters
+        elif event == _IRQ_CONNECTION_UPDATE:          # Connection parameters were updated
+            self.conn_handle, _, _, _, _ = data        # The new parameters
             print("Connection update")
+        elif event == _IRQ_ENCRYPTION_UPDATE:          # Encryption updated
+            conn_handle, encrypted, authenticated, bonded, key_size = data
+            print("encryption update", conn_handle, encrypted, authenticated, bonded, key_size)
+        elif event == _IRQ_PASSKEY_ACTION:             # Passkey actions: accept connection or show/enter passkey
+            conn_handle, action, passkey = data
+            print("passkey action", conn_handle, action, passkey)
+            if action == _PASSKEY_ACTION_NUMCMP:       # Do we accept this connection?
+                accept = False
+                if self.passkey_callback is not None:  # Is callback function set?
+                    accept = self.passkey_callback()   # Call callback for input
+                self._ble.gap_passkey(conn_handle, action, accept)
+            elif action == _PASSKEY_ACTION_DISP:       # Show our passkey
+                print("displaying passkey")
+                self._ble.gap_passkey(conn_handle, action, self.passkey)
+            elif action == _PASSKEY_ACTION_INPUT:      # Enter passkey
+                print("prompting for passkey")
+                pk = None
+                if self.passkey_callback is not None:  # Is callback function set?
+                    pk = self.passkey_callback()       # Call callback for input
+                self._ble.gap_passkey(conn_handle, action, pk)
+            else:
+                print("unknown action")
+        elif event == _IRQ_GATTS_INDICATE_DONE:
+            conn_handle, value_handle, status = data
+            print("gatts done: ", conn_handle)
+        elif event == _IRQ_SET_SECRET:                 # Set secret for bonding
+            sec_type, key, value = data
+            key = sec_type, bytes(key)
+            value = bytes(value) if value else None
+            print("set secret: ", key, value)
+            if value is None:                          # If value is empty, and
+                if key in self.keys:                   # If key is known then
+                    del self.keys[key]                 # Forget key
+                    self.save_secrets()                # Save bonding information
+                    return True
+                else:
+                    return False
+            else:
+                self.keys[key] = value                 # Remember key/value
+                self.save_secrets()                    # Save bonding information
+            return True
+        elif event == _IRQ_GET_SECRET:                 # Get secret for bonding
+            sec_type, index, key = data
+            print("get secret: ", sec_type, index, bytes(key) if key else None)
+            if key is None:
+                i = 0
+                for (t, _key), value in self.keys.items():
+                    if t == sec_type:
+                        if i == index:
+                            return value
+                        i += 1
+                return None
+            else:
+                key = sec_type, bytes(key)
+                return self.keys.get(key, None)
         else:
             print("Unhandled IRQ event: ", event)
 
     # Start the service
     # Must be overwritten by subclass, and called in
     # the overwritten function by using super(Subclass, self).start()
+    # io_capability determines whether and how passkeys are used
     def start(self):
         if self.device_state is HumanInterfaceDevice.DEVICE_STOPPED:
-            # Turn on BLE radio
-            self._ble.active(1)
             # Set interrupt request callback function
             self._ble.irq(self.ble_irq)
+
+            # Configure BLE interface
+            # Allow bonding
+            self._ble.config(bond=True)
+            # Require secure pairing
+            self._ble.config(le_secure=True)
+            # Require man in the middle protection
+            self._ble.config(mitm=True)
+            # Set our input/output capabilities
+            self._ble.config(io=self.io_capability)
+
+            # Turn on BLE radio
+            self._ble.active(1)
             # Set GAP device name
             self._ble.config(gap_name=self.device_name)
 
@@ -279,6 +370,28 @@ class HumanInterfaceDevice(object):
 
             self.set_state(HumanInterfaceDevice.DEVICE_STOPPED)
             print("Server stopped")
+
+    # Load bonding keys from json file
+    def load_secrets(self):
+        try:
+            with open("keys.json", "r") as file:
+                entries = json.load(file)
+                for sec_type, key, value in entries:
+                    self.keys[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
+        except:
+            print("no secrets available")
+
+    # Save bonding keys from json file
+    def save_secrets(self):
+        try:
+            with open("keys.json", "w") as file:
+                json_secrets = [
+                    (sec_type, binascii.b2a_base64(key), binascii.b2a_base64(value))
+                    for (sec_type, key), value in self.keys.items()
+                ]
+                json.dump(json_secrets, file)
+        except:
+            print("failed to save secrets")
 
     def is_running(self):
         return self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED
@@ -366,6 +479,29 @@ class HumanInterfaceDevice(object):
         self.pnp_manufacturer_uuid = pnp_manufacturer_uuid
         self.pnp_product_id = pnp_product_id
         self.pnp_product_version = pnp_product_version
+
+    # Set input/output capability of this device
+    # Determines the pairing procedure, e.g., accept connection/passkey entry/just works
+    # Must be called before calling Start()
+    # Must use the following values:
+    #   _IO_CAPABILITY_DISPLAY_ONLY
+    #   _IO_CAPABILITY_DISPLAY_YESNO
+    #   _IO_CAPABILITY_KEYBOARD_ONLY
+    #   _IO_CAPABILITY_NO_INPUT_OUTPUT
+    #   _IO_CAPABILITY_KEYBOARD_DISPLAY
+    def set_io_capability(self, io_capability):
+        self.io_capability = io_capability
+
+    # Set callback function for pairing events
+    # Depending on the I/O capability used, the callback function should return either a
+    # - boolean to accept or deny a connection, or a
+    # - passkey that was displayed by the main
+    def set_passkey_callback(self, passkey_callback):
+        self.passkey_callback = passkey_callback
+
+    # Set the passkey used during pairing when entering a passkey at the main
+    def set_passkey(self, passkey):
+        self.passkey = passkey
 
     # Notifies the central by writing to the battery level handle
     def notify_battery_level(self):
