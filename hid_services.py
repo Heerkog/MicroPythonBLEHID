@@ -248,7 +248,8 @@ class HumanInterfaceDevice(object):
             print("Central disconnected: ", conn_handle)
             self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
         elif event == _IRQ_MTU_EXCHANGED:              # MTU was set
-            print("MTU exchanged")
+            conn_handle, mtu = data
+            print("MTU exchanged: ", mtu)
         elif event == _IRQ_CONNECTION_UPDATE:          # Connection parameters were updated
             self.conn_handle, _, _, _, _ = data        # The new parameters
             print("Connection update")
@@ -319,9 +320,18 @@ class HumanInterfaceDevice(object):
             # Set interrupt request callback function
             self._ble.irq(self.ble_irq)
 
+            # Turn on BLE radio
+            self._ble.active(1)
+
             # Configure BLE interface
+            # Set GAP device name
+            self._ble.config(gap_name=self.device_name)
+
+            # Configure MTU
+            self._ble.config(mtu=23)
+
+            # Allow bonding
             if self.bond:  # calling this on ESP32 is unsupported
-                # Allow bonding
                 self._ble.config(bond=True)
 
             if self.le_secure:  # calling these on ESP32 is unsupported
@@ -331,11 +341,6 @@ class HumanInterfaceDevice(object):
                 self._ble.config(mitm=True)
                 # Set our input/output capabilities
                 self._ble.config(io=self.io_capability)
-
-            # Turn on BLE radio
-            self._ble.active(1)
-            # Set GAP device name
-            self._ble.config(gap_name=self.device_name)
 
             self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
             print("BLE on")
@@ -372,6 +377,10 @@ class HumanInterfaceDevice(object):
         if self.device_state is not HumanInterfaceDevice.DEVICE_STOPPED:
             if self.device_state is HumanInterfaceDevice.DEVICE_ADVERTISING:
                 self.adv.stop_advertising()
+
+            if self.conn_handle is not None:
+                self._ble.gap_disconnect(self.conn_handle)
+
             self._ble.active(0)
 
             self.set_state(HumanInterfaceDevice.DEVICE_STOPPED)
