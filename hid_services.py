@@ -320,9 +320,10 @@ class HumanInterfaceDevice(object):
             self._ble.irq(self.ble_irq)
 
             # Configure BLE interface
-            # Allow bonding
             if self.bond:  # calling this on ESP32 is unsupported
+                # Allow bonding
                 self._ble.config(bond=True)
+
             if self.le_secure:  # calling these on ESP32 is unsupported
                 # Require secure pairing
                 self._ble.config(le_secure=True)
