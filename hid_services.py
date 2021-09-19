@@ -182,6 +182,8 @@ class HumanInterfaceDevice(object):
         self.conn_handle = None
         self.state_change_callback = None
         self.io_capability = _IO_CAPABILITY_NO_INPUT_OUTPUT
+        self.bond = False
+        self.le_secure = False
 
         print("Server created")
 
@@ -242,7 +244,8 @@ class HumanInterfaceDevice(object):
             self.set_state(HumanInterfaceDevice.DEVICE_CONNECTED)     # (HIDS specification only allow one central to be connected)
         elif event == _IRQ_CENTRAL_DISCONNECT:         # Central disconnected
             self.conn_handle = None                    # Discard old handle
-            print("Central disconnected")
+            conn_handle, addr_type, addr = data
+            print("Central disconnected: ", conn_handle)
             self.set_state(HumanInterfaceDevice.DEVICE_IDLE)
         elif event == _IRQ_MTU_EXCHANGED:              # MTU was set
             print("MTU exchanged")
@@ -318,13 +321,15 @@ class HumanInterfaceDevice(object):
 
             # Configure BLE interface
             # Allow bonding
-            self._ble.config(bond=True)
-            # Require secure pairing
-            self._ble.config(le_secure=True)
-            # Require man in the middle protection
-            self._ble.config(mitm=True)
-            # Set our input/output capabilities
-            self._ble.config(io=self.io_capability)
+            if self.bond:  # calling this on ESP32 is unsupported
+                self._ble.config(bond=True)
+            if self.le_secure:  # calling these on ESP32 is unsupported
+                # Require secure pairing
+                self._ble.config(le_secure=True)
+                # Require man in the middle protection
+                self._ble.config(mitm=True)
+                # Set our input/output capabilities
+                self._ble.config(io=self.io_capability)
 
             # Turn on BLE radio
             self._ble.active(1)
@@ -479,6 +484,14 @@ class HumanInterfaceDevice(object):
         self.pnp_manufacturer_uuid = pnp_manufacturer_uuid
         self.pnp_product_id = pnp_product_id
         self.pnp_product_version = pnp_product_version
+
+    # Set whether to use Bluetooth bonding
+    def set_bonding(self, bond):
+        self.bond = bond
+
+    # Set whether to use LE secure pairing
+    def set_le_secure(self, le_secure):
+        self.le_secure = le_secure
 
     # Set input/output capability of this device
     # Determines the pairing procedure, e.g., accept connection/passkey entry/just works

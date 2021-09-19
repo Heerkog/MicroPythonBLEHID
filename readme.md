@@ -42,6 +42,8 @@ The library consists of five classes with the following functions:
   * `set_device_information(manufacture_name, model_number, serial_number)` (Sets the basic Device Information characteristics. Must be called before calling `start()`) 
   * `set_device_revision(firmware_revision, hardware_revision, software_revision)` (Sets the Device Information revision characteristics. Must be called before calling `start()`)
   * `set_device_pnp_information(pnp_manufacturer_source, pnp_manufacturer_uuid, pnp_product_id, pnp_product_version)` (Sets the Device Information PnP characteristics. Must be called before calling `start()`)
+  * `set_bonding(bond)` (Set whether to use Bluetooth bonding)
+  * `set_le_secure(le_secure)` (Set whether to use LE secure pairing)
   * `set_io_capability(io_capability)` (Set input/output capability of this device Determines the pairing procedure, e.g., accept connection/passkey entry/just works. Must be called before calling `start()`)
   * `set_passkey_callback(passkey_callback)` (Set callback function for pairing events. Callback function should return boolean to accept connection or passkey depending on I/O capability used)
   * `set_passkey(passkey)` (Set the passkey to use for pairing)
