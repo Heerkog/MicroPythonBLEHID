@@ -122,10 +122,12 @@ class Device:
         self.keyboard.set_keys(code)
         self.keyboard.set_modifiers(left_shift=mod)
         self.keyboard.notify_hid_report()
+        time.sleep_ms(2)
 
         self.keyboard.set_keys()
         self.keyboard.set_modifiers()
         self.keyboard.notify_hid_report()
+        time.sleep_ms(2)
 
 
     def send_string(self, st):
@@ -141,6 +143,7 @@ class Device:
         time.sleep(5)
         self.keyboard.set_battery_level(50)
         self.keyboard.notify_battery_level()
+        time.sleep_ms(2)
 
         # Press Shift+W
         self.keyboard.set_keys(0x1A)
