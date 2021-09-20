@@ -153,7 +153,7 @@ class Advertiser:
         self._payload = self.advertising_payload(name=name, services=services, appearance=appearance)
 
         self.advertising = False
-        print("Advertiser created")
+        print("Advertiser created: ", self.decode_name(self._payload), " with services: ", self.decode_services(self._payload))
 
     # Start advertising at 100000 interval
     def start_advertising(self):
@@ -380,6 +380,7 @@ class HumanInterfaceDevice(object):
 
             if self.conn_handle is not None:
                 self._ble.gap_disconnect(self.conn_handle)
+                self.conn_handle = None
 
             self._ble.active(0)
 
