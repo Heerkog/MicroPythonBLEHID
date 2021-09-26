@@ -16,30 +16,27 @@
 
 
 # Implements a BLE HID keyboard
-import time
+import uasyncio as asyncio
 from machine import SoftSPI, Pin
 from hid_services import Keyboard
 
 class Device:
-    def __init__(self):
+    def __init__(self, name="Keyboard"):
         # Define state
-        self.key0 = 0x00
-        self.key1 = 0x00
-        self.key2 = 0x00
-        self.key3 = 0x00
+        self.keys = []
+        self.updated = False
+        self.active = True
 
         # Define buttons
-        self.pin_forward = Pin(5, Pin.IN)
-        self.pin_reverse = Pin(23, Pin.IN)
-        self.pin_right = Pin(19, Pin.IN)
-        self.pin_left = Pin(18, Pin.IN)
+        self.pin_w = Pin(5, Pin.IN)
+        self.pin_s = Pin(23, Pin.IN)
+        self.pin_d = Pin(19, Pin.IN)
+        self.pin_a = Pin(18, Pin.IN)
 
         # Create our device
-        self.keyboard = Keyboard("Keyboard")
+        self.keyboard = Keyboard(name)
         # Set a callback function to catch changes of device state
         self.keyboard.set_state_change_callback(self.keyboard_state_callback)
-        # Start our device
-        self.keyboard.start()
 
     # Function that catches device status events
     def keyboard_state_callback(self):
@@ -61,51 +58,83 @@ class Device:
     def stop_advertise(self):
         self.keyboard.stop_advertising()
 
-    # Main loop
-    def start(self):
-        while True:
+    async def advertise_for(self, seconds=30):
+        self.advertise()
+
+        while seconds > 0 and self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
+            await asyncio.sleep(1)
+            seconds -= 1
+
+        if self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
+            self.stop_advertise()
+
+    # Input loop
+    async def gather_input(self):
+        while self.active:
+            prevkeys = self.keys
+            self.keys.clear()
+
             # Read pin values and update variables
-            if self.pin_forward.value():
-                self.key0 = 0x1A  # W
+            if self.pin_w.value():
+                self.keys.append(0x1A)  # W
             else:
-                self.key0 = 0x00
+                self.keys.append(0x00)
 
-            if self.pin_left.value():
-                self.key1 = 0x04  # A
+            if self.pin_a.value():
+                self.keys.append(0x04)  # A
             else:
-                self.key1 = 0x00
+                self.keys.append(0x00)
 
-            if self.pin_reverse.value():
-                self.key2 = 0x16  # S
+            if self.pin_s.value():
+                self.keys.append(0x16)  # S
             else:
-                self.key2 = 0x00
+                self.keys.append(0x00)
 
-            if self.pin_right.value():
-                self.key3 = 0x07  # D
+            if self.pin_d.value():
+                self.keys.append(0x07)  # D
             else:
-                self.key3 = 0x00
+                self.keys.append(0x00)
 
+            self.updated = self.updated or not (prevkeys == self.keys)  # If updated is still True, we haven't notified yet
+            await asyncio.sleep_ms(50)
+
+    # Bluetooth device loop
+    async def notify(self):
+        while self.active:
             # If the variables changed do something depending on the device state
-            if (self.key0 != 0x00) or (self.key1 != 0x00) or (self.key2 != 0x00) or (self.key3 != 0x00):
-                # If connected set keys and notify
-                # If idle start advertising for 30s or until connected
+            if self.updated:
+                # If connected, set keys and notify
+                # If idle, start advertising for 30s or until connected
                 if self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
-                    self.keyboard.set_keys(self.key0, self.key1, self.key2, self.key3)
+                    self.keyboard.set_keys(self.keys[0], self.keys[1], self.keys[2], self.keys[3])
                     self.keyboard.notify_hid_report()
                 elif self.keyboard.get_state() is Keyboard.DEVICE_IDLE:
-                    self.keyboard.start_advertising()
-                    i = 10
-                    while i > 0 and self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
-                        time.sleep(3)
-                        i -= 1
-                    if self.keyboard.get_state() is Keyboard.DEVICE_ADVERTISING:
-                        self.keyboard.stop_advertising()
+                    await self.advertise_for(30)
+                self.updated = False
 
             if self.keyboard.get_state() is Keyboard.DEVICE_CONNECTED:
-                time.sleep_ms(20)
+                await asyncio.sleep_ms(50)
             else:
-                time.sleep(2)
+                await asyncio.sleep(2)
 
+    async def co_start(self):
+        # Start our device
+        if self.keyboard.get_state() is Keyboard.DEVICE_STOPPED:
+            self.keyboard.start()
+            self.active = True
+            await asyncio.gather(self.advertise_for(30), self.gather_input(), self.notify())
+
+    async def co_stop(self):
+        self.active = False
+        self.keyboard.stop()
+
+    def start(self):
+        asyncio.run(self.co_start())
+
+    def stop(self):
+        asyncio.run(self.co_stop())
+
+    # Used with test
     def send_char(self, char):
         if char == " ":
             mod = 0
@@ -122,71 +151,83 @@ class Device:
         self.keyboard.set_keys(code)
         self.keyboard.set_modifiers(left_shift=mod)
         self.keyboard.notify_hid_report()
-        time.sleep_ms(2)
+        asyncio.sleep_ms(2)
 
         self.keyboard.set_keys()
         self.keyboard.set_modifiers()
         self.keyboard.notify_hid_report()
-        time.sleep_ms(2)
+        asyncio.sleep_ms(2)
 
-
+    # Used with test
     def send_string(self, st):
         for c in st:
             self.send_char(c)
 
-    # Only for test
-    def stop(self):
-        self.keyboard.stop()
-
     # Test routine
-    def test(self):
-        time.sleep(5)
+    async def test(self):
+        while not self.keyboard.is_connected():
+            await asyncio.sleep(5)
+
+        await asyncio.sleep(5)
         self.keyboard.set_battery_level(50)
         self.keyboard.notify_battery_level()
-        time.sleep_ms(2)
+        await asyncio.sleep_ms(500)
 
         # Press Shift+W
         self.keyboard.set_keys(0x1A)
         self.keyboard.set_modifiers(right_shift=1)
         self.keyboard.notify_hid_report()
+        await asyncio.sleep_ms(2)
 
         # release
         self.keyboard.set_keys()
         self.keyboard.set_modifiers()
         self.keyboard.notify_hid_report()
-        time.sleep_ms(500)
+        await asyncio.sleep_ms(500)
 
         # Press a
         self.keyboard.set_keys(0x04)
         self.keyboard.notify_hid_report()
+        await asyncio.sleep_ms(2)
 
         # release
         self.keyboard.set_keys()
         self.keyboard.notify_hid_report()
-        time.sleep_ms(500)
+        await asyncio.sleep_ms(500)
 
         # Press s
         self.keyboard.set_keys(0x16)
         self.keyboard.notify_hid_report()
+        await asyncio.sleep_ms(2)
 
         # release
         self.keyboard.set_keys()
         self.keyboard.notify_hid_report()
-        time.sleep_ms(500)
+        await asyncio.sleep_ms(500)
 
         # Press d
         self.keyboard.set_keys(0x07)
         self.keyboard.notify_hid_report()
+        await asyncio.sleep_ms(2)
 
         # release
         self.keyboard.set_keys()
         self.keyboard.notify_hid_report()
-        time.sleep_ms(500)
+        await asyncio.sleep_ms(500)
 
         self.send_string(" Hello World")
+        await asyncio.sleep_ms(500)
 
         self.keyboard.set_battery_level(100)
         self.keyboard.notify_battery_level()
+
+    async def co_start_test(self):
+        self.keyboard.start()
+        await asyncio.gather(self.advertise_for(30), self.test())
+
+    # start test
+    def start_test(self):
+        asyncio.run(self.co_start_test())
 
 if __name__ == "__main__":
     d = Device()

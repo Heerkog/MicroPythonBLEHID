@@ -16,18 +16,16 @@
 
 
 # Implements a BLE HID mouse
-import time
+import uasyncio as asyncio
 from machine import SoftSPI, Pin
 from hid_services import Mouse
 
 class Device:
-    def __init__(self):
+    def __init__(self, name="Mouse"):
         # Define state
-        self.x = 0
-        self.y = 0
-
-        self.prev_x = 0
-        self.prev_y = 0
+        self.axes = (0, 0)
+        self.updated = False
+        self.active = True
 
         # Define buttons
         self.pin_forward = Pin(5, Pin.IN)
@@ -36,11 +34,9 @@ class Device:
         self.pin_left = Pin(18, Pin.IN)
 
         # Create our device
-        self.mouse = Mouse("Mouse")
+        self.mouse = Mouse(name)
         # Set a callback function to catch changes of device state
         self.mouse.set_state_change_callback(self.mouse_state_callback)
-        # Start our device
-        self.mouse.start()
 
     # Function that catches device status events
     def mouse_state_callback(self):
@@ -59,74 +55,105 @@ class Device:
     def stop_advertise(self):
         self.mouse.stop_advertising()
 
-    # Main loop
-    def start(self):
-        while True:
-            # Read pin values and update variables
-            self.x = self.pin_right.value() * 127 - self.pin_left.value() * 127
-            self.y = self.pin_forward.value() * 127 - self.pin_reverse.value() * 127
+    async def advertise_for(self, seconds=30):
+        self.advertise()
 
-            # If the variables changed do something depending on the device state
-            if (self.x != self.prev_x) or (self.y != self.prev_y):
-                # Update values
-                self.prev_x = self.x
-                self.prev_y = self.y
+        while seconds > 0 and self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
+            await asyncio.sleep(1)
+            seconds -= 1
 
-                # If connected set axes and notify
-                # If idle start advertising for 30s or until connected
+        if self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
+            self.stop_advertise()
+
+    # Input loop
+    async def gather_input(self):
+        while self.active:
+            prevaxes = self.axes
+            self.axes = (self.pin_right.value() * 127 - self.pin_left.value() * 127, self.pin_forward.value() * 127 - self.pin_reverse.value() * 127)
+            self.updated = self.updated or not (prevaxes == self.axes)  # If updated is still True, we haven't notified yet
+            await asyncio.sleep_ms(50)
+
+    # Bluetooth device loop
+    async def notify(self):
+        while self.active:
+            # If connected, set axes and notify
+            # If idle, start advertising for 30s or until connected
+            if self.updated:
                 if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
-                    self.mouse.set_axes(self.x, self.y)
+                    self.mouse.set_axes(self.axes[0], self.axes[1])
                     self.mouse.notify_hid_report()
                 elif self.mouse.get_state() is Mouse.DEVICE_IDLE:
-                    self.mouse.start_advertising()
-                    i = 10
-                    while i > 0 and self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
-                        time.sleep(3)
-                        i -= 1
-                    if self.mouse.get_state() is Mouse.DEVICE_ADVERTISING:
-                        self.mouse.stop_advertising()
+                    await self.advertise_for(30)
+                self.updated = False
 
             if self.mouse.get_state() is Mouse.DEVICE_CONNECTED:
-                time.sleep_ms(20)
+                await asyncio.sleep_ms(50)
             else:
-                time.sleep(2)
+                await asyncio.sleep(2)
 
-    # Only for test
-    def stop(self):
+    async def co_start(self):
+        # Start our device
+        if self.mouse.get_state() is Mouse.DEVICE_STOPPED:
+            self.mouse.start()
+            self.active = True
+            await asyncio.gather(self.advertise_for(30), self.gather_input(), self.notify())
+
+    async def co_stop(self):
+        self.active = False
         self.mouse.stop()
 
+    def start(self):
+        asyncio.run(self.co_start())
+
+    def stop(self):
+        asyncio.run(self.co_stop())
+
     # Test routine
-    def test(self):
+    async def test(self):
+        while not self.mouse.is_connected():
+            await asyncio.sleep(5)
+
+        await asyncio.sleep(5)
         self.mouse.set_battery_level(50)
         self.mouse.notify_battery_level()
+        await asyncio.sleep_ms(500)
 
         for i in range(30):
             self.mouse.set_axes(100,100)
             self.mouse.set_buttons(1)
             self.mouse.notify_hid_report()
-            time.sleep_ms(500)
+            await asyncio.sleep_ms(500)
 
             self.mouse.set_axes(100,-100)
             self.mouse.set_buttons()
             self.mouse.notify_hid_report()
-            time.sleep_ms(500)
+            await asyncio.sleep_ms(500)
 
             self.mouse.set_axes(-100,-100)
             self.mouse.set_buttons(b2=1)
             self.mouse.notify_hid_report()
-            time.sleep_ms(500)
+            await asyncio.sleep_ms(500)
 
             self.mouse.set_axes(-100,100)
             self.mouse.set_buttons()
             self.mouse.notify_hid_report()
-            time.sleep_ms(500)
+            await asyncio.sleep_ms(500)
 
         self.mouse.set_axes(0,0)
         self.mouse.set_buttons()
         self.mouse.notify_hid_report()
+        await asyncio.sleep_ms(500)
 
         self.mouse.set_battery_level(100)
         self.mouse.notify_battery_level()
+
+    async def co_start_test(self):
+        self.mouse.start()
+        await asyncio.gather(self.advertise_for(30), self.test())
+
+    # start test
+    def start_test(self):
+        asyncio.run(self.co_start_test())
 
 if __name__ == "__main__":
     d = Device()

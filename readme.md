@@ -109,5 +109,6 @@ The library is structured as followed:
   * `joystick_example.py`
   * `keyboard_example.py`
   * `mouse_example.py`
+  * `tinypico_dpad.py`
 * `hid_services.py`
 * `readme.md`

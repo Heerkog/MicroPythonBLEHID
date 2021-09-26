@@ -14,14 +14,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-# Implements a BLE HID joystick
+# Implements a BLE HID joystick on the TinyPICO
 import uasyncio as asyncio
 from machine import SoftSPI, Pin
 from hid_services import Joystick
+import tinypico as TinyPICO
+from dotstar import DotStar
 
 class Device:
-    def __init__(self, name="Joystick"):
+    def __init__(self, name="TinyPICO D-pad"):
+        # Create a DotStar instance
+        spi = SoftSPI(sck=Pin( TinyPICO.DOTSTAR_CLK ), mosi=Pin( TinyPICO.DOTSTAR_DATA ), miso=Pin( TinyPICO.SPI_MISO) )
+        self.dotstar = DotStar(spi, 1, brightness = 0.5 )  # Just one DotStar, half brightness
+
+        # Turn on the power to the DotStar
+        TinyPICO.set_dotstar_power( True )
+        self.dotstar[0] = (255, 0, 0, 0.5)
+
         # Define state
         self.axes = (0, 0)
         self.updated = False
@@ -38,16 +47,16 @@ class Device:
         # Set a callback function to catch changes of device state
         self.joystick.set_state_change_callback(self.joystick_state_callback)
 
-    # Function that catches device status events
+    # Sets dotstar color
     def joystick_state_callback(self):
         if self.joystick.get_state() is Joystick.DEVICE_IDLE:
-            return
+            self.dotstar[0] = (255, 140, 0, 0.5)
         elif self.joystick.get_state() is Joystick.DEVICE_ADVERTISING:
-            return
+            self.dotstar[0] = (255, 255, 0, 0.5)
         elif self.joystick.get_state() is Joystick.DEVICE_CONNECTED:
-            return
+            self.dotstar[0] = (0, 255, 0, 0.5)
         else:
-            return
+            self.dotstar[0] = (255, 0, 0, 0.5)
 
     def advertise(self):
         self.joystick.start_advertising()
@@ -107,53 +116,6 @@ class Device:
 
     def stop(self):
         asyncio.run(self.co_stop())
-
-    # Test routine
-    async def test(self):
-        while not self.joystick.is_connected():
-            await asyncio.sleep(5)
-
-        await asyncio.sleep(5)
-        self.joystick.set_battery_level(50)
-        self.joystick.notify_battery_level()
-        await asyncio.sleep_ms(500)
-
-        for i in range(30):
-            self.joystick.set_axes(100,100)
-            self.joystick.set_buttons(1)
-            self.joystick.notify_hid_report()
-            await asyncio.sleep_ms(500)
-
-            self.joystick.set_axes(100,-100)
-            self.joystick.set_buttons(b3=1)
-            self.joystick.notify_hid_report()
-            await asyncio.sleep_ms(500)
-
-            self.joystick.set_axes(-100,-100)
-            self.joystick.set_buttons()
-            self.joystick.notify_hid_report()
-            await asyncio.sleep_ms(500)
-
-            self.joystick.set_axes(-100,100)
-            self.joystick.set_buttons(b2=1)
-            self.joystick.notify_hid_report()
-            await asyncio.sleep_ms(500)
-
-        self.joystick.set_axes(0,0)
-        self.joystick.set_buttons()
-        self.joystick.notify_hid_report()
-        await asyncio.sleep_ms(500)
-
-        self.joystick.set_battery_level(100)
-        self.joystick.notify_battery_level()
-
-    async def co_start_test(self):
-        self.joystick.start()
-        await asyncio.gather(self.advertise_for(30), self.test())
-
-    # start test
-    def start_test(self):
-        asyncio.run(self.co_start_test())
 
 if __name__ == "__main__":
     d = Device()
