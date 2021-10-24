@@ -65,7 +65,7 @@ To get a local copy simply clone this repository.
    git clone https://github.com/heerkog/MicroPythonBLEHID.git
    ```
 
-The library is structured as followed:
+The repository is structured as followed:
 
 * `examples/` directory containing some examples.
   * `async/` directory containing asynchronous examples.
