@@ -1,18 +1,93 @@
-## MicroPython Human Interface Device library
+<div id="top"></div>
+
+
+<!-- PROJECT SHIELDS -->
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![GPL License][license-shield]][license-url]
+
+
+
+<!-- PROJECT HEADER -->
+<br />
+<div align="center">
+<h3 align="center">MicroPython Human Interface Device library</h3>
+
+  <p align="center">
+    A library that offers implementations of Human Interface Devices (HID) over Bluetooth Low Energy (BLE) GATT for MicroPython.
+  </p>
+</div>
+
+
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
+
+
+
+<!-- ABOUT THE PROJECT -->
+## About The Project
 This library offers implementations of Human Interface Devices (HID) over Bluetooth Low Energy (BLE) GATT for MicroPython.
 The library has been tested using an ESP32 development board ([TinyPICO](https://tinypico.com)) as the peripheral and Windows 10 as the central.
-Examples and basic implementations of HID devices are available for 
+Examples and basic implementations of HID devices are available for
 
-- Keyboard, 
+- Keyboard,
 - Mouse, and
 - Joystick.
 
 This library is NOT intended to offer functionality for every possible HID device configuration.
 Instead, the library is designed to offer basic well-documented classes that you can extend to fit your HID device needs.
 For example, the Mouse class offers a three button mouse with vertical scroll wheel.
-If you plan on developing a gaming mouse with eight buttons and both vertical and horizontal wheels, you will need to extend the Mouse class and overwrite the required functions to include a new HID report descriptor.  
+If you plan on developing a gaming mouse with eight buttons and both vertical and horizontal wheels, you will need to extend the Mouse class and overwrite the required functions to include a new HID report descriptor.
 
-### Library functionality
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+<!-- GETTING STARTED -->
+## Getting Started
+
+To get a local copy simply clone this repository.
+
+   ```sh
+   git clone https://github.com/heerkog/MicroPythonBLEHID.git
+   ```
+
+The library is structured as followed:
+
+* `examples/` directory containing some examples.
+  * `async/` directory containing asynchronous examples.
+    * `joystick_example.py`
+    * `keyboard_example.py`
+    * `mouse_example.py`
+  * `simple/` directory containing simple examples.
+    * `joystick_example.py`
+    * `keyboard_example.py`
+    * `mouse_example.py`
+  * `tinypico/` directory containing TinyPICO specific examples. These are mostly personal projects.
+* `hid_services.py` the library.
+* `LICENSE` the license.
+* `readme.md`
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- USAGE EXAMPLES -->
+## Usage
+
 The library offers functionality for creating HID services, advertising them, and setting and notifying the central of HID events.
 The library does not offer functionality to, for example, send a string of characters to the central using the keyboard service (eventhough this is included in the keyboard example).
 The reason for this is that such functionality is entirely dependent on the intended use of the services and should be kept outside of this library.
@@ -39,7 +114,7 @@ The library consists of five classes with the following functions:
   * `get_services_uuids()` (Returns the service UUIDs)
   * `get_appearance()` (Returns the device appearance id)
   * `get_battery_level()` (Returns the battery level)
-  * `set_device_information(manufacture_name, model_number, serial_number)` (Sets the basic Device Information characteristics. Must be called before calling `start()`) 
+  * `set_device_information(manufacture_name, model_number, serial_number)` (Sets the basic Device Information characteristics. Must be called before calling `start()`)
   * `set_device_revision(firmware_revision, hardware_revision, software_revision)` (Sets the Device Information revision characteristics. Must be called before calling `start()`)
   * `set_device_pnp_information(pnp_manufacturer_source, pnp_manufacturer_uuid, pnp_product_id, pnp_product_version)` (Sets the Device Information PnP characteristics. Must be called before calling `start()`)
   * `set_bonding(bond)` (Set whether to use Bluetooth bonding)
@@ -50,7 +125,7 @@ The library consists of five classes with the following functions:
   * `set_battery_level(level)` (Sets the battery level internally)
   * `notify_battery_level()` (Notifies the central of the current battery level. Call after setting battery level)
   * `notify_hid_report()` (Function for subclasses to override)
-  
+
 * `Joystick` (subclass of `HumanInterfaceDevice`, implements joystick service)
   * `__init__(name)` (Initialize the joystick)
   * `start()` (Starts the HID service using joystick characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -58,7 +133,7 @@ The library consists of five classes with the following functions:
   * `notify_hid_report()` (Notifies the central of the internal HID joystick status)
   * `set_axes(x, y)` (Sets the joystick axes internally)
   * `set_buttons(b1, b2, b3, b4, b5, b6, b7, b8)` (Sets the joystick buttons internally)
-  
+
 * `Mouse` (subclass of `HumanInterfaceDevice`, implements mouse service)
   * `__init__(name)` (Initialize the mouse)
   * `start()` (Starts the HID service using mouse characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -67,7 +142,7 @@ The library consists of five classes with the following functions:
   * `set_axes(x, y)` (Sets the mouse axes movement internally)
   * `set_wheel(w)` (Sets the mouse wheel movement internally)
   * `set_buttons(b1, b2, b3)` (Sets the mouse buttons internally)
-  
+
 * `Keyboard` (subclass of `HumanInterfaceDevice`, implements keyboard service)
   * `__init__(name)`  (Initialize the keyboard)
   * `start()` (Starts the HID service using keyboard characteristics. Calls `HumanInterfaceDevice.start()`)
@@ -77,7 +152,7 @@ The library consists of five classes with the following functions:
   * `set_keys(k0, k1, k2, k3, k4, k5)` (Sets a list of key codes to press internally. Call without keys to release.)
   * `ble_irq(event, data)` (Internal callback function that catches BLE keyboard interrupt requests)
   * `set_kb_callback(kb_callback)` (Sets a callback function that is called on a keyboard event)
-  
+
 * `Advertiser` (from the [MicroPython Bluetooth examples](https://github.com/micropython/micropython), used internally by `HumanInterfaceDevice` class)
   * `__init__(ble, services, appearance, name)`
   * `advertising_payload(limited_disc, br_edr, name, services, appearance)`
@@ -87,7 +162,50 @@ The library consists of five classes with the following functions:
   * `start_advertising()` (Used internally)
   * `stop_advertising()` (Used internally)
 
-### Resources
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+<!-- CONTRIBUTING -->
+## Contributing
+
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Don't forget to give the project a star! Thanks again!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- LICENSE -->
+## License
+
+Distributed under the GNU General Public License. See `LICENSE` for more information.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- CONTACT -->
+## Contact
+
+Heerko Groefsema - [@heerkog](https://twitter.com/heerkog)
+
+Project Link: [https://github.com/heerkog/MicroPythonBLEHID](https://github.com/heerkog/MicroPythonBLEHID)
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- ACKNOWLEDGMENTS -->
+## Acknowledgments
 The following resources were of interest during development:
 
 * Bluetooth HID
@@ -102,13 +220,20 @@ The following resources were of interest during development:
   * [Bluetooth examples](https://github.com/micropython/micropython/tree/master/examples/bluetooth)
   * [BLE HID examples](https://github.com/micropython/micropython/pull/6559)
 
-### Library structure
-The library is structured as followed:
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-* `examples/`
-  * `joystick_example.py`
-  * `keyboard_example.py`
-  * `mouse_example.py`
-  * `tinypico_dpad.py`
-* `hid_services.py`
-* `readme.md`
+
+
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/heerkog/MicroPythonBLEHID.svg?style=for-the-badge
+[contributors-url]: https://github.com/heerkog/MicroPythonBLEHID/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/heerkog/MicroPythonBLEHID.svg?style=for-the-badge
+[forks-url]: https://github.com/heerkog/MicroPythonBLEHID/network/members
+[stars-shield]: https://img.shields.io/github/stars/heerkog/MicroPythonBLEHID.svg?style=for-the-badge
+[stars-url]: https://github.com/heerkog/MicroPythonBLEHID/stargazers
+[issues-shield]: https://img.shields.io/github/issues/heerkog/MicroPythonBLEHID.svg?style=for-the-badge
+[issues-url]: https://github.com/heerkog/MicroPythonBLEHID/issues
+[license-shield]: https://img.shields.io/github/license/heerkog/MicroPythonBLEHID.svg?style=for-the-badge
+[license-url]: https://github.com/heerkog/MicroPythonBLEHID/blob/master/LICENSE.txt
+
