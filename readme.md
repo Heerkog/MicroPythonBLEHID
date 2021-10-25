@@ -196,7 +196,7 @@ Distributed under the GNU General Public License. See `LICENSE` for more informa
 <!-- CONTACT -->
 ## Contact
 
-Heerko Groefsema - [@heerkog](https://twitter.com/heerkog)
+Heerko Groefsema - [@HeerkoG](https://twitter.com/heerkog) - [hgroefsema.nl](https://hgroefsema.nl)
 
 Project Link: [https://github.com/heerkog/MicroPythonBLEHID](https://github.com/heerkog/MicroPythonBLEHID)
 
