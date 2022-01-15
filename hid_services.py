@@ -357,16 +357,20 @@ class HumanInterfaceDevice(object):
         (h_mod, h_ser, h_fwr, h_hwr, h_swr, h_man, h_pnp) = handles[0]
         (self.h_bat,) = handles[1]
 
+        def string_pack(in_str):
+            return struct.pack(str(len(in_str))+"s", in_str.encode('UTF-8'))
+
         # Write service characteristics
         print("Writing device information service characteristics")
 
-        self._ble.gatts_write(h_mod, struct.pack("s", self.model_number.encode('UTF-8')))
-        self._ble.gatts_write(h_ser, struct.pack("s", self.serial_number.encode('UTF-8')))
-        self._ble.gatts_write(h_fwr, struct.pack("s", self.firmware_revision.encode('UTF-8')))
-        self._ble.gatts_write(h_hwr, struct.pack("s", self.hardware_revision.encode('UTF-8')))
-        self._ble.gatts_write(h_swr, struct.pack("s", self.software_revision.encode('UTF-8')))
-        self._ble.gatts_write(h_man, struct.pack("s", self.manufacture_name.encode('UTF-8')))
-        self._ble.gatts_write(h_pnp, struct.pack("<B", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
+        self._ble.gatts_write(h_mod, string_pack(self.model_number))
+        self._ble.gatts_write(h_ser, string_pack(self.serial_number))
+        self._ble.gatts_write(h_fwr, string_pack(self.firmware_revision))
+        self._ble.gatts_write(h_hwr, string_pack(self.hardware_revision))
+        self._ble.gatts_write(h_swr, string_pack(self.software_revision))
+        self._ble.gatts_write(h_man, string_pack(self.manufacture_name))
+        # "<B" is now "<BHHH" basis https://www.bluetooth.com/wp-content/uploads/Sitecore-Media-Library/Gatt/Xml/Characteristics/org.bluetooth.characteristic.pnp_id.xml 
+        self._ble.gatts_write(h_pnp, struct.pack("<BHHH", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
 
         print("Writing battery service characteristics")
         # Battery level
@@ -758,7 +762,7 @@ class Mouse(HumanInterfaceDevice):
         (h_info, h_hid, _, self.h_rep, h_d1, h_proto,) = handles[2]
 
         # Pack the initial mouse state as described by the input report
-        b = self.button1 + self.button2 * 2 + self.button3
+        b = self.button1 + self.button2 * 2 + self.button3 * 4
         state = struct.pack("Bbbb", b, self.x, self.y, self.w)
 
         print("Writing hid service characteristics")
