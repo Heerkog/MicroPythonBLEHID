@@ -864,8 +864,8 @@ class Keyboard(HumanInterfaceDevice):
         # fmt: on
 
         # Define the initial keyboard state
-        self.modifiers = 0       # 8 bits signifying Right GUI(Win/Command), Right ALT/Option, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
-        self.keys = [0x00] * 6   # 6 keys to hold
+        self.modifiers = 0             # 8 bits signifying Right GUI(Win/Command), Right ALT/Option, Right Shift, Right Control, Left GUI, Left ALT, Left Shift, Left Control
+        self.keypresses = [0x00] * 6   # 6 keys to hold
 
         # Callback function for keyboard messages from central
         self.kb_callback = None
@@ -923,7 +923,7 @@ class Keyboard(HumanInterfaceDevice):
     def notify_hid_report(self):
         if self.is_connected():
             # Pack the Keyboard state as described by the input report
-            state = struct.pack("8B", self.modifiers, 0, self.keys[0], self.keys[1], self.keys[2], self.keys[3], self.keys[4], self.keys[5])
+            state = struct.pack("8B", self.modifiers, 0, self.keypresses[0], self.keypresses[1], self.keypresses[2], self.keypresses[3], self.keypresses[4], self.keypresses[5])
 
             print("Notify with report: ", struct.unpack("8B", state))
             # Notify central by writing to the report handle
@@ -936,7 +936,7 @@ class Keyboard(HumanInterfaceDevice):
     # Press keys, notify to send the keys to central
     # This will hold down the keys, call set_keys() without arguments and notify again to release
     def set_keys(self, k0=0x00, k1=0x00, k2=0x00, k3=0x00, k4=0x00, k5=0x00):
-        self.keys = [k0, k1, k2, k3, k4, k5]
+        self.keypresses = [k0, k1, k2, k3, k4, k5]
 
     # Set a callback function that gets notified on keyboard changes
     # Should take a tuple with the report bytes
