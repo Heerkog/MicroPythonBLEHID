@@ -27,6 +27,7 @@
   <summary>Table of Contents</summary>
   <ol>
     <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#requirements">Requirements</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#usage">Usage</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -52,6 +53,18 @@ This library is NOT intended to offer functionality for every possible HID devic
 Instead, the library is designed to offer basic well-documented classes that you can extend to fit your HID device needs.
 For example, the Mouse class offers a three button mouse with vertical scroll wheel.
 If you plan on developing a gaming mouse with eight buttons and both vertical and horizontal wheels, you will need to extend the Mouse class and overwrite the required functions to include a new HID report descriptor.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+<!-- REQUIREMENTS -->
+## Requirements
+
+The following is required to use this library:
+- ESP32 chip with 
+  - Bluetooth
+  - 512 kB SRAM or more
+- Micropython v1.18 or higher
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
