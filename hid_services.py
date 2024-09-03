@@ -598,7 +598,7 @@ class Joystick(HumanInterfaceDevice):
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
                     (UUID(0x2902), ATT_F_READ_WRITE),                                                                   # 0x2902 = Client Characteristic Configuration.
-                    (UUID(0x2908), F_READ_WRITE_NORESPONSE),                                                            # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
+                    (UUID(0x2908), ATT_F_READ_WRITE),                                                                   # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
             ),
@@ -721,7 +721,7 @@ class Mouse(HumanInterfaceDevice):
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
                     (UUID(0x2902), ATT_F_READ_WRITE),                                                                   # 0x2902 = Client Characteristic Configuration.
-                    (UUID(0x2908), F_READ_WRITE_NORESPONSE),                                                            # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
+                    (UUID(0x2908), ATT_F_READ_WRITE),                                                                   # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
             ),
@@ -852,7 +852,7 @@ class Keyboard(HumanInterfaceDevice):
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
                     (UUID(0x2902), ATT_F_READ_WRITE),                                                                   # 0x2902 = Client Characteristic Configuration.
-                    (UUID(0x2908), F_READ_WRITE_NORESPONSE),                                                            # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
+                    (UUID(0x2908), ATT_F_READ_WRITE),                                                                   # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
                 )),
                 (UUID(0x2A4D), F_READ_WRITE, ((UUID(0x2908), F_READ),)),                                                # 0x2A4D = HID report / 0x2908 = reference, to be read & written by client / to be read by client.
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
