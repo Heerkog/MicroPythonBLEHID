@@ -935,7 +935,7 @@ class Keyboard(HumanInterfaceDevice):
     def write_service_characteristics(self, handles):
         super(Keyboard, self).write_service_characteristics(handles)                                                    # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, _, self.h_rep, _, h_d1, self.h_repout, _ h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, _, self.h_rep, _, h_d1, self.h_repout, _, h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         print("Writing hid service characteristics")
         # Write service characteristics
