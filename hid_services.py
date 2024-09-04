@@ -854,7 +854,10 @@ class Keyboard(HumanInterfaceDevice):
                     (UUID(0x2902), ATT_F_READ_WRITE),                                                                   # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2908), ATT_F_READ_WRITE),                                                                   # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
                 )),
-                (UUID(0x2A4D), F_READ_WRITE, ((UUID(0x2908), F_READ),)),                                                # 0x2A4D = HID report / 0x2908 = reference, to be read & written by client / to be read by client.
+                (UUID(0x2A4D), F_READ_WRITE, (                                                                          # 0x2A4D = HID report
+                    (UUID(0x2902), ATT_F_READ_WRITE),                                                                   # 0x2902 = Client Characteristic Configuration.
+                    (UUID(0x2908), ATT_F_READ_WRITE),                                                                   # 0x2908 = HID reference, to be read by client (allow write because MicroPython v1.20+ bug).
+                )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
             ),
         )
@@ -932,7 +935,7 @@ class Keyboard(HumanInterfaceDevice):
     def write_service_characteristics(self, handles):
         super(Keyboard, self).write_service_characteristics(handles)                                                    # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, _, self.h_rep, _, h_d1, self.h_repout, h_d2, h_proto) = handles[2]                              # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, _, self.h_rep, _, h_d1, self.h_repout, _ h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         print("Writing hid service characteristics")
         # Write service characteristics
