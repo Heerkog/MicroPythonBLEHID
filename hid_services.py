@@ -322,7 +322,7 @@ class HumanInterfaceDevice(object):
             sec_type, key, value = data
             key = sec_type, bytes(key)
             value = bytes(value) if value else None
-            print("set secret: ", key, value)
+            print("set secret:", key, value)
             if value is None:                                                                                           # If value is empty, and
                 if key in self.keys:                                                                                    # If key is known then
                     del self.keys[key]                                                                                  # Forget key
@@ -336,18 +336,19 @@ class HumanInterfaceDevice(object):
             return True
         elif event == _IRQ_GET_SECRET:                                                                                  # Get secret for bonding
             sec_type, index, key = data
-            print("get secret: ", sec_type, index, bytes(key) if key else None)
+            value = None
             if key is None:
                 i = 0
-                for (t, _key), value in self.keys.items():
+                for (t, _key), _val in self.keys.items():
                     if t == sec_type:
                         if i == index:
-                            return value
+                            value = _val
                         i += 1
-                return None
             else:
-                key = sec_type, bytes(key)
-                return self.keys.get(key, None)
+                _key = sec_type, bytes(key)
+                value = self.keys.get(_key, None)
+            print("get secret:", sec_type, index, bytes(key) if key else None, bytes(value) if value else None)
+            return value
         else:
             print("Unhandled IRQ event: ", event)
 
@@ -368,7 +369,10 @@ class HumanInterfaceDevice(object):
             self._ble.config(io=self.io_capability)                                                                     # Set our input/output capabilities. Determines whether and how passkeys are used.
 
             self.set_state(HumanInterfaceDevice.DEVICE_IDLE)                                                            # Update the device state.
-            print("BLE on")
+
+            (addr_type, addr) = self._ble.config('mac')                                                                 # Get our address type and mac address.
+
+            print("BLE on with", "random" if addr_type else "public", "mac address", addr)
 
     # After registering the DIS and BAS services, write their characteristic values.
     # Must be overwritten by subclass, and called in
@@ -434,7 +438,7 @@ class HumanInterfaceDevice(object):
         try:
             with open("keys.json", "w") as file:
                 json_secrets = [
-                    (sec_type, binascii.b2a_base64(key), binascii.b2a_base64(value))
+                    (sec_type, binascii.b2a_base64(key, newline=False), binascii.b2a_base64(value, newline=False))
                     for (sec_type, key), value in self.keys.items()
                 ]
                 json.dump(json_secrets, file)
