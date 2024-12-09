@@ -201,7 +201,7 @@ class HumanInterfaceDevice(object):
         self.key_size = 0                                                                                               # The encryption key size.
 
         self.passkey = 1234                                                                                             # The standard passkey for pairing. Only used when io capability allows so. Use the set_passkey(passkey) function to overwrite.
-        self.keys = {}                                                                                                  # The key store for bonding
+        self.secrets = {}                                                                                                  # The key store for bonding
 
         self.load_secrets()                                                                                             # Call the function to load the known keys for bonding into the key store.
 
@@ -298,20 +298,20 @@ class HumanInterfaceDevice(object):
             return None                                                                                                 # Return an empty packet.
         elif event == _IRQ_ENCRYPTION_UPDATE:                                                                           # Encryption was updated.
             conn_handle, self.encrypted, self.authenticated, self.bonded, self.key_size = data                          # Update the values.
-            print("encryption update", conn_handle, self.encrypted, self.authenticated, self.bonded, self.key_size)
+            print("Encryption update", conn_handle, self.encrypted, self.authenticated, self.bonded, self.key_size)
         elif event == _IRQ_PASSKEY_ACTION:                                                                              # Passkey actions: accept connection or show/enter passkey.
             conn_handle, action, passkey = data
-            print("passkey action", conn_handle, action, passkey)
+            print("Passkey action", conn_handle, action, passkey)
             if action == _PASSKEY_ACTION_NUMCMP:                                                                        # Do we accept this connection?
                 accept = False
                 if self.passkey_callback is not None:                                                                   # Is callback function set?
                     accept = self.passkey_callback()                                                                    # Call callback for input.
                 self._ble.gap_passkey(conn_handle, action, accept)
             elif action == _PASSKEY_ACTION_DISP:                                                                        # Show our passkey.
-                print("displaying passkey")
+                print("Displaying passkey")
                 self._ble.gap_passkey(conn_handle, action, self.passkey)
             elif action == _PASSKEY_ACTION_INPUT:                                                                       # Enter passkey.
-                print("prompting for passkey")
+                print("Prompting for passkey")
                 pk = None
                 if self.passkey_callback is not None:                                                                   # Is callback function set?
                     pk = self.passkey_callback()                                                                        # Call callback for input.
@@ -320,37 +320,39 @@ class HumanInterfaceDevice(object):
                 print("Unknown passkey action")
         elif event == _IRQ_SET_SECRET:                                                                                  # Set secret for bonding.
             sec_type, key, value = data
-            key = sec_type, bytes(key)
+            key = (sec_type, bytes(key))
             value = bytes(value) if value else None
-            print("set secret:", key, value)
             if value is None:                                                                                           # If value is empty, and
-                if key in self.keys:                                                                                    # If key is known then
-                    del self.keys[key]                                                                                  # Forget key
-                    self.save_secrets()                                                                                 # Save bonding information
+                if key in self.secrets:                                                                                 # If key is known then
+                    del self.secrets[key]                                                                               # Forget key
+                    self.save_secrets()
+                    print("Removing secret:", key)
                     return True
                 else:
+                    print("Secret not found:", key)
                     return False
             else:
-                self.keys[key] = value                                                                                  # Remember key/value
-                self.save_secrets()                                                                                     # Save bonding information
+                self.secrets[key] = value                                                                               # Remember key/value
+                self.save_secrets()
+                print("Saving secret:", key, value)
             return True
         elif event == _IRQ_GET_SECRET:                                                                                  # Get secret for bonding
             sec_type, index, key = data
+            _key = (sec_type, bytes(key) if key else None)
             value = None
             if key is None:
                 i = 0
-                for (t, _key), _val in self.keys.items():
+                for (t, _k), _val in self.secrets.items():
                     if t == sec_type:
                         if i == index:
                             value = _val
                         i += 1
             else:
-                _key = sec_type, bytes(key)
-                value = self.keys.get(_key, None)
-            print("get secret:", sec_type, index, bytes(key) if key else None, bytes(value) if value else None)
+                value = self.secrets.get(_key, None)
+            print("Returning secret:", bytes(value) if value else None, "for", "key" if key else "index", _key if key else index, "with type", sec_type)
             return value
         else:
-            print("Unhandled IRQ event: ", event)
+            print("Unhandled IRQ event:", event)
 
     # Start the service.
     # Must be overwritten by subclass, and called in
@@ -429,9 +431,9 @@ class HumanInterfaceDevice(object):
             with open("keys.json", "r") as file:
                 entries = json.load(file)
                 for sec_type, key, value in entries:
-                    self.keys[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
+                    self.secrets[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
         except:
-            print("no secrets available")
+            print("No secrets available")
 
     # Save bonding keys to json file.
     def save_secrets(self):
@@ -439,11 +441,11 @@ class HumanInterfaceDevice(object):
             with open("keys.json", "w") as file:
                 json_secrets = [
                     (sec_type, binascii.b2a_base64(key, newline=False), binascii.b2a_base64(value, newline=False))
-                    for (sec_type, key), value in self.keys.items()
+                    for (sec_type, key), value in self.secrets.items()
                 ]
                 json.dump(json_secrets, file)
         except:
-            print("failed to save secrets")
+            print("Failed to save secrets")
 
     # Returns whether the device is not stopped.
     def is_running(self):
