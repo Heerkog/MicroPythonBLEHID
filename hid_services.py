@@ -659,31 +659,32 @@ class Joystick(HumanInterfaceDevice):
         print("Registering services")
         handles = self._ble.gatts_register_services(self.services)                                                      # Register services and get read/write handles for all services.
         self.write_service_characteristics(handles)                                                                     # Write the values for the characteristics.
-        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)                      # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)              # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
         print("Server started")
 
     # Overwrite super to write HID specific characteristics.
     def write_service_characteristics(self, handles):
         super(Joystick, self).write_service_characteristics(handles)                                                    # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, _, self.h_rep, _, h_d1, h_proto) = handles[2]                                                   # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, _, self.h_rep, h_cccd, h_d1, h_proto) = handles[2]                                              # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
-        state = struct.pack("bbB", self.x, self.y, b)                                                                   # Pack the initial joystick state as described by the input report.
+        state = struct.pack("bbB", self.x, self.y, b)                                                          # Pack the initial joystick state as described by the input report.
 
         print("Writing hid service characteristics")
         # Write service characteristics
         self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")                                                              # HID info: ver=1.1, country=0, flags=normal.
         self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)                                                             # HID input report map.
         self._ble.gatts_write(self.h_rep, state)                                                                        # HID report.
-        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                           # HID reference: id=1, type=input.
+        self._ble.gatts_write(h_cccd, b"\x02")                                                                          # HID CCCD: notify=true, indicate=false.
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                  # HID reference: id=1, type=input.
         self._ble.gatts_write(h_proto, b"\x01")                                                                         # HID protocol mode: report.
 
     # Overwrite super to notify central of a hid report.
     def notify_hid_report(self):
         if self.is_connected():
             b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
-            state = struct.pack("bbB", self.x, self.y, b)                                                               # Pack the joystick state as described by the input report.
+            state = struct.pack("bbB", self.x, self.y, b)                                                      # Pack the joystick state as described by the input report.
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify client by writing to the report handle.
             print("Notify with report: ", struct.unpack("bbB", state))
 
@@ -784,7 +785,7 @@ class Mouse(HumanInterfaceDevice):
         print("Registering services")
         handles = self._ble.gatts_register_services(self.services)                                                      # Register services and get read/write handles for all services.
         self.write_service_characteristics(handles)                                                                     # Write the values for the characteristics.
-        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)                      # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)              # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
 
         print("Server started")
 
@@ -792,25 +793,26 @@ class Mouse(HumanInterfaceDevice):
     def write_service_characteristics(self, handles):
         super(Mouse, self).write_service_characteristics(handles)                                                       # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, _, h_d1, h_proto) = handles[2]                                              # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_cccd, h_d1, h_proto) = handles[2]                                         # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
         print("h_info =", h_info, "h_hid =", h_hid, "h_ctrl =", h_ctrl, "h_rep =", self.h_rep, "h_d1ref =", h_d1, "h_proto =", h_proto)
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4
-        state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                          # Pack the initial mouse state as described by the input report.
+        state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                 # Pack the initial mouse state as described by the input report.
 
         print("Writing hid service characteristics")
         # Write service characteristics.
         self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")                                                              # HID info: ver=1.1, country=0, flags=normal.
         self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)                                                             # HID input report map.
         self._ble.gatts_write(self.h_rep, state)                                                                        # HID report.
-        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                           # HID reference: id=1, type=input.
+        self._ble.gatts_write(h_cccd, b"\x02")                                                                          # HID CCCD: notify=true, indicate=false.
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                  # HID reference: id=1, type=input.
         self._ble.gatts_write(h_proto, b"\x01")                                                                         # HID protocol mode: report.
 
     # Overwrite super to notify central of a hid report
     def notify_hid_report(self):
         if self.is_connected():
             b = self.button1 + self.button2 * 2 + self.button3
-            state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                      # Pack the mouse state as described by the input report.
+            state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                             # Pack the mouse state as described by the input report.
             self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify central by writing to the report handle.
             print("Notify with report: ", struct.unpack("Bbbb", state))
 
@@ -921,7 +923,7 @@ class Keyboard(HumanInterfaceDevice):
             print("Keyboard changed by Central")
             conn_handle, attr_handle = data                                                                             # Get the handle to the characteristic that was written.
             report = self._ble.gatts_read(attr_handle)                                                                  # Read the report.
-            bytes = struct.unpack("B", report)                                                                          # Unpack the report.
+            bytes = struct.unpack("B", report)                                                                  # Unpack the report.
             if self.kb_callback is not None:                                                                            # Call the callback function.
                 self.kb_callback(bytes)
         else:                                                                                                           # Else let super handle the event.
@@ -934,21 +936,23 @@ class Keyboard(HumanInterfaceDevice):
         print("Registering services")
         handles = self._ble.gatts_register_services(self.services)                                                      # Register services and get read/write handles for all services.
         self.write_service_characteristics(handles)                                                                     # Write the values for the characteristics.
-        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)                      # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
+        self.adv = Advertiser(self._ble, [UUID(0x1812)], self.device_appearance, self.device_name)              # Create an Advertiser. Only advertise the top level service, i.e., the HIDS.
         print("Server started")
 
     # Overwrite super to write HID specific characteristics.
     def write_service_characteristics(self, handles):
         super(Keyboard, self).write_service_characteristics(handles)                                                    # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, _, self.h_rep, _, h_d1, self.h_repout, _, h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, _, self.h_rep, h_cccd, h_d1, self.h_repout, h_cccd2, h_d2, h_proto) = handles[2]                # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         print("Writing hid service characteristics")
         # Write service characteristics
         self._ble.gatts_write(h_info, b"\x01\x01\x00\x02")                                                              # HID info: ver=1.1, country=0, flags=normal.
         self._ble.gatts_write(h_hid, self.HID_INPUT_REPORT)                                                             # HID input report map.
-        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                           # HID reference: id=1, type=input.
-        self._ble.gatts_write(h_d2, struct.pack("<BB", 1, 2))                                                           # HID reference: id=1, type=output.
+        self._ble.gatts_write(h_cccd, b"\x02")                                                                          # HID CCCD: notify=true, indicate=false.
+        self._ble.gatts_write(h_d1, struct.pack("<BB", 1, 1))                                                  # HID reference: id=1, type=input.
+        self._ble.gatts_write(h_cccd2, b"\x00")                                                                         # HID CCCD: notify=false, indicate=false.
+        self._ble.gatts_write(h_d2, struct.pack("<BB", 1, 2))                                                  # HID reference: id=1, type=output.
         self._ble.gatts_write(h_proto, b"\x01")                                                                         # HID protocol mode: report.
 
     # Overwrite super to notify central of a hid report.
