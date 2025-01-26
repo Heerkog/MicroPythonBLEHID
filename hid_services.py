@@ -249,7 +249,6 @@ class HumanInterfaceDevice(object):
             UUID(0x180F),                                                                                               # 0x180F = Battery Information.
             (
                 (UUID(0x2A19), F_READ_NOTIFY, (                                                                         # 0x2A19 = Battery level, to be read by client after being notified of change.
-                    (UUID(0x2902), DSC_F_WRITE),                                                                        # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2904), DSC_F_READ),                                                                         # 0x2904 = Characteristic Presentation Format.
                 )),
             ),
@@ -403,7 +402,7 @@ class HumanInterfaceDevice(object):
         print("Writing service characteristics")
 
         (h_mod, h_ser, h_fwr, h_hwr, h_swr, h_man, h_pnp) = handles[0]                                                  # Get handles to DIS service characteristics. These correspond directly to its definition in self.DIS. Position 0 because of the order of self.services.
-        (self.h_bat, h_ccc, h_bfmt,) = handles[1]                                                                       # Get handles to BAS service characteristics. These correspond directly to its definition in self.BAS. Position 1 because of the order of self.services.
+        (self.h_bat, h_bfmt,) = handles[1]                                                                              # Get handles to BAS service characteristics. These correspond directly to its definition in self.BAS. Position 1 because of the order of self.services.
 
         # Simplify packing strings into byte arrays.
         def string_pack(in_str, nr_bytes):
@@ -421,7 +420,6 @@ class HumanInterfaceDevice(object):
         print("Saving battery service characteristics")
         self.characteristics[self.h_bat] = ("Battery level",  struct.pack("<B", self.battery_level))
         self.characteristics[h_bfmt] = ("Battery format", b'\x04\x00\xad\x27\x01\x00\x00')
-        self.characteristics[h_ccc] = ("Battery CCCD", b'\x01')
 
     # Stop the service.
     def stop(self):
@@ -625,7 +623,6 @@ class Joystick(HumanInterfaceDevice):
                 (UUID(0x2A4B), F_READ),                                                                                 # 0x2A4B = HID USB report map, to be read by client.
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
-                    (UUID(0x2902), DSC_F_WRITE),                                                                        # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
@@ -689,7 +686,7 @@ class Joystick(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Joystick, self).save_service_characteristics(handles)                                                     # Call super to save DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_cccd, h_d1, h_proto) = handles[2]                                         # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[2]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
         state = struct.pack("bbB", self.x, self.y, b)                                                                   # Pack the initial joystick state as described by the input report.
@@ -700,7 +697,6 @@ class Joystick(HumanInterfaceDevice):
         self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID report", state)                                                        # HID report.
-        self.characteristics[h_cccd] = ("HID CCCD", b"\x01")                                                            # HID CCCD: notify=true, indicate=false.
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
@@ -752,7 +748,6 @@ class Mouse(HumanInterfaceDevice):
                 (UUID(0x2A4B), F_READ),                                                                                 # 0x2A4B = HID report map, to be read by client.
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
-                    (UUID(0x2902), DSC_F_WRITE),                                                                        # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
@@ -819,7 +814,7 @@ class Mouse(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Mouse, self).save_service_characteristics(handles)                                                        # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_cccd, h_d1, h_proto) = handles[2]                                         # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[2]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4
         state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                          # Pack the initial mouse state as described by the input report.
@@ -829,7 +824,6 @@ class Mouse(HumanInterfaceDevice):
         self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID report", state)                                                        # HID report.
-        self.characteristics[h_cccd] = ("HID CCCD", b"\x01")                                                            # HID CCCD: notify=true, indicate=false.
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
@@ -885,11 +879,9 @@ class Keyboard(HumanInterfaceDevice):
                 (UUID(0x2A4B), F_READ),                                                                                 # 0x2A4B = HID report map, to be read by client.
                 (UUID(0x2A4C), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4C = HID control point, to be written by client.
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
-                    (UUID(0x2902), DSC_F_WRITE),                                                                        # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
                 (UUID(0x2A4D), F_READ_WRITE, (                                                                          # 0x2A4D = HID report
-                    (UUID(0x2902), DSC_F_WRITE),                                                                        # 0x2902 = Client Characteristic Configuration.
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
@@ -972,7 +964,7 @@ class Keyboard(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Keyboard, self).save_service_characteristics(handles)                                                     # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_cccd, h_d1, self.h_repout, h_cccd2, h_d2, h_proto) = handles[2]           # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, self.h_repout, h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
 
         state = struct.pack("8B", self.modifiers, 0, self.keypresses[0], self.keypresses[1], self.keypresses[2], self.keypresses[3], self.keypresses[4], self.keypresses[5])
 
@@ -981,10 +973,8 @@ class Keyboard(HumanInterfaceDevice):
         self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID input report", state)                                                  # HID report.
-        self.characteristics[h_cccd] = ("HID input CCCD", b"\x01")                                                      # HID CCCD: notify=true, indicate=false.
         self.characteristics[h_d1] = ("HID input reference", struct.pack("<BB", 1, 1))                                  # HID reference: id=1, type=input.
         self.characteristics[self.h_repout] = ("HID output report", state)                                              # HID report.
-        self.characteristics[h_cccd2] = ("HID output CCCD", b"\x00")                                                    # HID CCCD: notify=false, indicate=false.
         self.characteristics[h_d2] = ("HID output reference", struct.pack("<BB", 1, 2))                                 # HID reference: id=1, type=output.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
