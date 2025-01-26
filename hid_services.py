@@ -415,7 +415,7 @@ class HumanInterfaceDevice(object):
         self.characteristics[h_hwr] = ("Hardware revision", string_pack(self.hardware_revision, 16))
         self.characteristics[h_swr] = ("Software revision", string_pack(self.software_revision, 8))
         self.characteristics[h_man] = ("Manufacturer name", string_pack(self.manufacture_name, 36))
-        self.characteristics[h_pnp] = ("PnP information", struct.pack("<BHHH", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
+        self.characteristics[h_pnp] = ("PnP information", struct.pack(">BHHH", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
 
         print("Saving battery service characteristics")
         self.characteristics[self.h_bat] = ("Battery level",  struct.pack("<B", self.battery_level))
