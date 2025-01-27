@@ -210,7 +210,7 @@ class HumanInterfaceDevice(object):
 
         # General characteristics.
         self.device_name = device_name                                                                                  # The device name.
-        self.service_uuids = [UUID(0x180A), UUID(0x180F), UUID(0x1812)]                                                 # Service UUIDs: DIS, BAS, HIDS (Device Information Service, BAttery Service, Human Interface Device Service). These are required for a HID.
+        self.service_uuids = [UUID(0x180A), UUID(0x180F), UUID(0x1200), UUID(0x1124), UUID(0x1812)]                     # Service UUIDs: DIS, BAS, DID, HID, HIDS (Device Information Service, BAttery Service, Device Identification service, Human Interface Device Profile Service, Human Interface Device Service). These are required for a HID.
         self.device_appearance = 960                                                                                    # The device appearance: 960 = Generic HID.
 
         # Device Information Service (DIS) characteristics.
@@ -223,15 +223,15 @@ class HumanInterfaceDevice(object):
 
         # DIS plug and play (PnP) characteristics.
         self.pnp_manufacturer_source = 0x01                                                                             # The manufacturer source. 0x01 = Bluetooth uuid list.
-        self.pnp_manufacturer_uuid = 0xFE61                                                                             # The manufacturer id, e.g., 0xFEB2 for Microsoft, 0xFE61 for Logitech, 0xFD65 for Razer.
+        self.pnp_manufacturer_uuid = 0xFFFF                                                                             # The manufacturer id, e.g., 0xFEB2 for Microsoft, 0xFE61 for Logitech, 0xFD65 for Razer, 0xFFFF = default.
         self.pnp_product_id = 0x01                                                                                      # The product id. 0x01 = 1.
-        self.pnp_product_version = 0x0123                                                                               # The product version. 0x0123 = 1.2.3.
+        self.pnp_product_version = 0x0123                                                                               # The product version. 0x0123 = 1.23.
 
         # BAttery Service (BAS) characteristics.
         self.battery_level = 100                                                                                        # The battery level characteristic (percentages).
 
-        # Device Information Service (DIS) description.
-        self.DIS = (
+
+        self.DIS = (                                                                                                    # Device Information Service (DIS) description.
             UUID(0x180A),                                                                                               # 0x180A = Device Information.
             (
                 (UUID(0x2A24), F_READ),                                                                                 # 0x2A24 = Model number string, to be read by client.
@@ -244,8 +244,7 @@ class HumanInterfaceDevice(object):
             ),
         )
 
-        # Battery Service (BAS) description.
-        self.BAS = (
+        self.BAS = (                                                                                                    # Battery Service (BAS) description.
             UUID(0x180F),                                                                                               # 0x180F = Battery Information.
             (
                 (UUID(0x2A19), F_READ_NOTIFY, (                                                                         # 0x2A19 = Battery level, to be read by client after being notified of change.
@@ -254,7 +253,38 @@ class HumanInterfaceDevice(object):
             ),
         )
 
-        self.services = [self.DIS, self.BAS]                                                                            # List of service descriptions. We will append HIDS in their respective subclasses.
+        self.DID = (                                                                                                    # Device Identification Profile (DID) description.
+            UUID(0x1200),                                                                                               # 0x1200 = PnPInformation.
+            (
+                (UUID(0x0200), F_READ),                                                                                 # 0x0200 = SpecificationID.
+                (UUID(0x0201), F_READ),                                                                                 # 0x0201 = VendorID.
+                (UUID(0x0202), F_READ),                                                                                 # 0x0202 = ProductID.
+                (UUID(0x0203), F_READ),                                                                                 # 0x0203 = Version.
+                (UUID(0x0204), F_READ),                                                                                 # 0x0204 = PrimaryRecord.
+                (UUID(0x0205), F_READ),                                                                                 # 0x0205 = VendorIDSource.
+            ),
+        )
+
+        self.HID = (                                                                                                    # HID profile description: describes the device.
+            UUID(0x1124),                                                                                               # 0x1124 = Human Interface Device Profile.
+            (
+                (UUID(0x0100), F_READ),                                                                                 # 0x0100 = Service Name.
+                (UUID(0x0101), F_READ),                                                                                 # 0x0101 = Service Description.
+                (UUID(0x0102), F_READ),                                                                                 # 0x0102 = Provider Name.
+                (UUID(0x0201), F_READ),                                                                                 # 0x0201 = HIDParserVersion.
+                (UUID(0x0202), F_READ),                                                                                 # 0x0202 = HIDDeviceSubclass.
+                (UUID(0x0203), F_READ),                                                                                 # 0x0203 = HIDCountryCode.
+                (UUID(0x0204), F_READ),                                                                                 # 0x0204 = HIDVirtualCable.
+                (UUID(0x0205), F_READ),                                                                                 # 0x0205 = HIDReconnectInitiate.
+                (UUID(0x0206), F_READ),                                                                                 # 0x0206 = HIDDescriptorList.
+                (UUID(0x0207), F_READ),                                                                                 # 0x0207 = HIDLANGIDBaseList.
+                (UUID(0x0209), F_READ),                                                                                 # 0x0209 = HIDBatteryPower.
+                (UUID(0x020A), F_READ),                                                                                 # 0x020A = HIDRemoteWake.
+                (UUID(0x020E), F_READ),                                                                                 # 0x020E = HIDBootDevice.
+            ),
+        )
+
+        self.services = [self.DIS, self.BAS, self.DID, self.HID]                                                        # List of service descriptions. We will append HIDS in their respective subclasses.
 
         self.HID_INPUT_REPORT = None                                                                                    # The HID USB input report. We will specify these in their respective subclasses.
 
@@ -403,10 +433,15 @@ class HumanInterfaceDevice(object):
 
         (h_mod, h_ser, h_fwr, h_hwr, h_swr, h_man, h_pnp) = handles[0]                                                  # Get handles to DIS service characteristics. These correspond directly to its definition in self.DIS. Position 0 because of the order of self.services.
         (self.h_bat, h_bfmt,) = handles[1]                                                                              # Get handles to BAS service characteristics. These correspond directly to its definition in self.BAS. Position 1 because of the order of self.services.
+        (h_sid, h_vid, h_pid, h_ver, h_rec, h_vs) = handles[2]                                                          # Get handles to DID service characteristics. These correspond directly to its definition in self.DID. Position 2 because of the order of self.services.
+        (h_sn, h_sd, h_sp, h_pv, _, h_cc, h_vc, h_ri, _, h_lng, h_bp, h_rw, h_bd) = handles[3]                          # Get handles to HID service characteristics. These correspond directly to its definition in self.HID. Position 3 because of the order of self.services.
 
         # Simplify packing strings into byte arrays.
         def string_pack(in_str, nr_bytes):
             return struct.pack(str(nr_bytes)+"s", in_str.encode('UTF-8'))
+
+        def string_len_pack(in_str):
+            return struct.pack("B"+str(len(in_str))+"s", len(in_str), in_str.encode('UTF-8'))
 
         print("Saving device information service characteristics")
         self.characteristics[h_mod] = ("Model number", string_pack(self.model_number, 24))
@@ -418,8 +453,30 @@ class HumanInterfaceDevice(object):
         self.characteristics[h_pnp] = ("PnP information", struct.pack(">BHHH", self.pnp_manufacturer_source, self.pnp_manufacturer_uuid, self.pnp_product_id, self.pnp_product_version))
 
         print("Saving battery service characteristics")
-        self.characteristics[self.h_bat] = ("Battery level",  struct.pack("<B", self.battery_level))
+        self.characteristics[self.h_bat] = ("Battery level", struct.pack("<B", self.battery_level))
         self.characteristics[h_bfmt] = ("Battery format", b'\x04\x00\xad\x27\x01\x00\x00')
+
+        print("Saving device identification service characteristics")
+        self.characteristics[h_sid] = ("Specification ID", b'0x0103')
+        self.characteristics[h_vid] = ("Vendor ID", struct.pack(">H",self.pnp_manufacturer_uuid))
+        self.characteristics[h_pid] = ("Product ID", struct.pack(">H",self.pnp_product_id))
+        self.characteristics[h_ver] = ("Version", struct.pack(">H",self.pnp_product_version))
+        self.characteristics[h_rec] = ("Primary record", b'0x01')
+        self.characteristics[h_vs] = ("Vendor source", struct.pack(">H",self.pnp_manufacturer_source))
+
+        print("Saving generic human interface service characteristics")
+        self.characteristics[h_sn] = ("Service name", string_len_pack(self.device_name))
+        self.characteristics[h_sd] = ("Service description", string_len_pack(self.device_name))
+        self.characteristics[h_sp] = ("Service provider", string_len_pack(self.manufacture_name))
+        self.characteristics[h_pv] = ("HID parser version", b'0x0111')
+        self.characteristics[h_cc] = ("Country code", b'0x00')
+        self.characteristics[h_vc] = ("Virtual cable", b'0x00')
+        self.characteristics[h_ri] = ("Reconnect initiate", b'0x00')
+        self.characteristics[h_lng] = ("Language IDs", b'\x08\x06\x04\x09\x01\x00')
+        self.characteristics[h_ver] = ("Version", struct.pack(">H",self.pnp_product_version))
+        self.characteristics[h_bp] = ("Battery power", b'0x01')
+        self.characteristics[h_rw] = ("Remote wake", b'0x00')
+        self.characteristics[h_bd] = ("Boot device", b'0x00')
 
     # Stop the service.
     def stop(self):
@@ -616,8 +673,8 @@ class Joystick(HumanInterfaceDevice):
         super(Joystick, self).__init__(name)                                                                            # Set up the general HID services in super.
         self.device_appearance = 963                                                                                    # Overwrite the device appearance ID, 963 = joystick.
 
-        self.HIDS = (                                                                                                   # HID service description: describes the service and how we communicate
-            UUID(0x1812),                                                                                               # 0x1812 = Human Interface Device
+        self.HIDS = (                                                                                                   # HID service description: describes the service and how we communicate.
+            UUID(0x1812),                                                                                               # 0x1812 = Human Interface Device.
             (
                 (UUID(0x2A4A), F_READ),                                                                                 # 0x2A4A = HID information characteristic, to be read by client.
                 (UUID(0x2A4B), F_READ),                                                                                 # 0x2A4B = HID USB report map, to be read by client.
@@ -630,7 +687,7 @@ class Joystick(HumanInterfaceDevice):
         )
 
         # fmt: off
-        self.HID_INPUT_REPORT = bytes([                                                                                 # USB Report Description: describes what we communicate.
+        self.HID_INPUT_REPORT = [                                                                                       # USB Report Description: describes what we communicate.
             0x05, 0x01,                                                                                                 # USAGE_PAGE (Generic Desktop)
             0x09, 0x04,                                                                                                 # USAGE (Joystick)
             0xa1, 0x01,                                                                                                 # COLLECTION (Application)
@@ -653,7 +710,7 @@ class Joystick(HumanInterfaceDevice):
             0x81, 0x02,                                                                                                 #     Input (Data, Variable, Absolute)
             0xc0,                                                                                                       #   END_COLLECTION
             0xc0                                                                                                        # END_COLLECTION
-        ])
+        ]
         # fmt: on
 
         # Define the initial joystick state.
@@ -669,7 +726,7 @@ class Joystick(HumanInterfaceDevice):
         self.button7 = 0
         self.button8 = 0
 
-        self.services = [self.DIS, self.BAS, self.HIDS]                                                                 # Overwrite list of service descriptions.
+        self.services.append(self.HIDS)                                                                                 # Append to list of service descriptions.
 
     # Overwrite super to register HID specific service.
     def start(self):
@@ -686,15 +743,23 @@ class Joystick(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Joystick, self).save_service_characteristics(handles)                                                     # Call super to save DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[2]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (_, _, _, _, h_sc, _, _, _, h_dl, _, _, _, _) = handles[3]                                                      # Get handles to HID service characteristics. These correspond directly to its definition in self.HID. Position 3 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[4]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 3 because of the order of self.services.
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
         state = struct.pack("bbB", self.x, self.y, b)                                                                   # Pack the initial joystick state as described by the input report.
 
+        hid_dl = [0x2A]
+        hid_dl.extend(self.HID_INPUT_REPORT)
+
+        print("Saving specific human interface service characteristics")
+        self.characteristics[h_sc] = ("HID device subclass", b'\x01')
+        self.characteristics[h_dl] = ("HID descriptor list", bytes(hid_dl))
+
         print("Saving HID service characteristics")
         # Save service characteristics
         self.characteristics[h_info] = ("HID information", b"\x01\x01\x00\x02")                                         # HID info: ver=1.1, country=0, flags=normal.
-        self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
+        self.characteristics[h_hid] = ("HID input report map", bytes(self.HID_INPUT_REPORT))                            # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID report", state)                                                        # HID report.
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
@@ -755,7 +820,7 @@ class Mouse(HumanInterfaceDevice):
         )
 
         # fmt: off
-        self.HID_INPUT_REPORT = bytes([                                                                                 # Report Description: describes what we communicate.
+        self.HID_INPUT_REPORT = [                                                                                       # Report Description: describes what we communicate.
             0x05, 0x01,                                                                                                 # USAGE_PAGE (Generic Desktop)
             0x09, 0x02,                                                                                                 # USAGE (Mouse)
             0xa1, 0x01,                                                                                                 # COLLECTION (Application)
@@ -784,7 +849,7 @@ class Mouse(HumanInterfaceDevice):
             0x81, 0x06,                                                                                                 #         Input(Data, Variable, Relative); 3 position bytes (X,Y,Wheel)
             0xc0,                                                                                                       #   END_COLLECTION
             0xc0                                                                                                        # END_COLLECTION
-        ])
+        ]
         # fmt: on
 
         # Define the initial mouse state.
@@ -796,7 +861,7 @@ class Mouse(HumanInterfaceDevice):
         self.button2 = 0
         self.button3 = 0
 
-        self.services = [self.DIS, self.BAS, self.HIDS]                                                                 # Override list of service descriptions.
+        self.services.append(self.HIDS)                                                                                 # Append to list of service descriptions.
 
     # Overwrite super to register HID specific service.
     def start(self):
@@ -814,14 +879,22 @@ class Mouse(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Mouse, self).save_service_characteristics(handles)                                                        # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[2]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (_, _, _, _, h_sc, _, _, _, h_dl, _, _, _, _) = handles[3]                                                      # Get handles to HID service characteristics. These correspond directly to its definition in self.HID. Position 3 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, h_proto) = handles[4]                                                 # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 3 because of the order of self.services.
 
         b = self.button1 + self.button2 * 2 + self.button3 * 4
         state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                          # Pack the initial mouse state as described by the input report.
 
+        hid_dl = [0x36]
+        hid_dl.extend(self.HID_INPUT_REPORT)
+
+        print("Saving specific human interface service characteristics")
+        self.characteristics[h_sc] = ("HID device subclass", b'\x80')
+        self.characteristics[h_dl] = ("HID descriptor list", bytes(hid_dl))
+
         print("Saving HID service characteristics")
         self.characteristics[h_info] = ("HID information", b"\x01\x01\x00\x02")                                         # HID info: ver=1.1, country=0, flags=normal.
-        self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
+        self.characteristics[h_hid] = ("HID input report map", bytes(self.HID_INPUT_REPORT))                            # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID report", state)                                                        # HID report.
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
@@ -889,7 +962,7 @@ class Keyboard(HumanInterfaceDevice):
         )
 
         # fmt: off
-        self.HID_INPUT_REPORT = bytes([                                                                                 # Report Description: describes what we communicate.
+        self.HID_INPUT_REPORT = [                                                                                       # Report Description: describes what we communicate.
             0x05, 0x01,                                                                                                 # USAGE_PAGE (Generic Desktop)
             0x09, 0x06,                                                                                                 # USAGE (Keyboard)
             0xa1, 0x01,                                                                                                 # COLLECTION (Application)
@@ -923,7 +996,7 @@ class Keyboard(HumanInterfaceDevice):
             0x29, 0x65,                                                                                                 #     Usage Maximum (101)
             0x81, 0x00,                                                                                                 #     Input (Data, Array); Key array (6 bytes)
             0xc0                                                                                                        # END_COLLECTION
-        ])
+        ]
         # fmt: on
 
         # Define the initial keyboard state.
@@ -932,7 +1005,7 @@ class Keyboard(HumanInterfaceDevice):
 
         self.kb_callback = None                                                                                         # Callback function for keyboard messages from client.
 
-        self.services = [self.DIS, self.BAS, self.HIDS]                                                                 # Override list of service descriptions.
+        self.services.append(self.HIDS)                                                                                 # Append to list of service descriptions.
 
     # Interrupt request callback function
     # Overwrite super to catch keyboard report write events by the central.
@@ -964,13 +1037,21 @@ class Keyboard(HumanInterfaceDevice):
     def save_service_characteristics(self, handles):
         super(Keyboard, self).save_service_characteristics(handles)                                                     # Call super to write DIS and BAS characteristics.
 
-        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, self.h_repout, h_d2, h_proto) = handles[2]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 2 because of the order of self.services.
+        (_, _, _, _, h_sc, _, _, _, h_dl, _, _, _, _) = handles[3]                                                      # Get handles to HID service characteristics. These correspond directly to its definition in self.HID. Position 3 because of the order of self.services.
+        (h_info, h_hid, h_ctrl, self.h_rep, h_d1, self.h_repout, h_d2, h_proto) = handles[4]                            # Get the handles for the HIDS characteristics. These correspond directly to self.HIDS. Position 3 because of the order of self.services.
 
         state = struct.pack("8B", self.modifiers, 0, self.keypresses[0], self.keypresses[1], self.keypresses[2], self.keypresses[3], self.keypresses[4], self.keypresses[5])
 
+        hid_dl = [0x41]
+        hid_dl.extend(self.HID_INPUT_REPORT)
+
+        print("Saving specific human interface service characteristics")
+        self.characteristics[h_sc] = ("HID device subclass", b'\x40')
+        self.characteristics[h_dl] = ("HID descriptor list", bytes(hid_dl))
+
         print("Saving HID service characteristics")
         self.characteristics[h_info] = ("HID information", b"\x01\x01\x00\x02")                                         # HID info: ver=1.1, country=0, flags=normal.
-        self.characteristics[h_hid] = ("HID input report map", self.HID_INPUT_REPORT)                                   # HID input report map.
+        self.characteristics[h_hid] = ("HID input report map", bytes(self.HID_INPUT_REPORT))                            # HID input report map.
         self.characteristics[h_ctrl] = ("HID control point", b"\x00")                                                   # HID control point.
         self.characteristics[self.h_rep] = ("HID input report", state)                                                  # HID report.
         self.characteristics[h_d1] = ("HID input reference", struct.pack("<BB", 1, 1))                                  # HID reference: id=1, type=input.
