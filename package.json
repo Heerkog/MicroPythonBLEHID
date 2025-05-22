@@ -1,0 +1,7 @@
+{
+  "urls": [
+    ["hid_services.py", "github:Heerkog/MicroPythonBLEHID/hid_services.py"]
+  ],
+  "version": "1.0.0",
+  "deps": []
+}
