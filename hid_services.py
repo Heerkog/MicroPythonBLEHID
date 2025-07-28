@@ -27,6 +27,7 @@ F_WRITE = bluetooth.FLAG_WRITE
 F_READ_WRITE = bluetooth.FLAG_READ | bluetooth.FLAG_WRITE
 F_READ_NOTIFY = bluetooth.FLAG_READ | bluetooth.FLAG_NOTIFY
 F_READ_WRITE_NORESPONSE = bluetooth.FLAG_READ | bluetooth.FLAG_WRITE | bluetooth.FLAG_WRITE_NO_RESPONSE
+F_READ_WRITE_NOTIFY_NORESPONSE = bluetooth.FLAG_READ | bluetooth.FLAG_WRITE | bluetooth.FLAG_NOTIFY | bluetooth.FLAG_WRITE_NO_RESPONSE
 
 DSC_F_READ = 0x02
 DSC_F_WRITE = 0x03
@@ -901,7 +902,7 @@ class Keyboard(HumanInterfaceDevice):
                 (UUID(0x2A4D), F_READ_NOTIFY, (                                                                         # 0x2A4D = HID report, to be read by client after notification.
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
-                (UUID(0x2A4D), F_READ_WRITE, (                                                                          # 0x2A4D = HID report
+                (UUID(0x2A4D), F_READ_WRITE_NOTIFY_NORESPONSE, (                                                        # 0x2A4D = HID report
                     (UUID(0x2908), DSC_F_READ),                                                                         # 0x2908 = HID reference, to be read by client.
                 )),
                 (UUID(0x2A4E), F_READ_WRITE_NORESPONSE),                                                                # 0x2A4E = HID protocol mode, to be written & read by client.
