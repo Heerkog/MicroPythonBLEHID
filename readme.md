@@ -28,6 +28,7 @@
   <ol>
     <li><a href="#about-the-project">About The Project</a></li>
     <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#faq">FAQ</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#usage">Usage</a></li>
     <li><a href="#contributing">Contributing</a></li>
@@ -65,6 +66,28 @@ The following is required to use this library:
   - Bluetooth
   - 512 kB SRAM or more
 - Micropython v1.18 or higher
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+<!-- FAQ -->
+## FAQ
+
+### My device doesn't reconnect after power cycling
+Please make sure bonding and LE secure is enabled (default).
+If that doesn't work, please try using NVS storage before calling `start()`:
+```python
+from hid_keystores import NVSKeyStore
+
+ks = NVSKeyStore()
+self.keyboard.set_keystore(ks)
+```
+
+### Using a keyboard and mouse simultaneously
+This is not immediately supported.
+You will need to create a new device that has a multi-device HID descriptor and report.
+Please see [this tutorial](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/) for more information and use [this tool](https://www.usb.org/document-library/hid-descriptor-tool) to create the descriptor.
+
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
