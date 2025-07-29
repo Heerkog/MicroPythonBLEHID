@@ -86,7 +86,7 @@ self.keyboard.set_keystore(ks)
 ### Using a keyboard and mouse simultaneously
 This is not immediately supported.
 You will need to create a new device that has a multi-device HID descriptor and report.
-Please see [this tutorial](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/) for more information and use [this tool](https://www.usb.org/document-library/hid-descriptor-tool) to create the descriptor.
+Please see [this tutorial](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/) for more information and use [this tool](https://github.com/microsoft/hidtools) to create the descriptor.
 
 
 <p align="right">(<a href="#top">back to top</a>)</p>
@@ -252,7 +252,7 @@ The following resources were of interest during development:
   * [Bluetooth device class list](http://domoticx.com/bluetooth-class-of-device-lijst-cod/)
 * USB HID
   * [USB HID specification](https://www.usb.org/document-library/device-class-definition-hid-111)
-  * [USB report descriptor tool](https://www.usb.org/document-library/hid-descriptor-tool)
+  * [USB report descriptor tool](https://github.com/microsoft/hidtools)
   * [USB HID report descriptor tutorial](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/)
 * Micropython
   * [Bluetooth examples](https://github.com/micropython/micropython/tree/master/examples/bluetooth)
