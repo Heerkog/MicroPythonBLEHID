@@ -20,7 +20,6 @@ import struct
 import bluetooth
 from bluetooth import UUID
 from hid_keystores import JSONKeyStore
-from hid_keystores import NVSKeyStore
 
 F_READ = bluetooth.FLAG_READ
 F_WRITE = bluetooth.FLAG_WRITE
@@ -204,7 +203,7 @@ class HumanInterfaceDevice(object):
         self.key_size = 0                                                                                               # The encryption key size.
 
         self.passkey = 1234                                                                                             # The standard passkey for pairing. Only used when io capability allows so. Use the set_passkey(passkey) function to overwrite.
-        self.secrets = NVSKeyStore()                                                                                   # The key store for bonding
+        self.secrets = JSONKeyStore()                                                                                   # The key store for bonding
 
         # General characteristics.
         self.device_name = device_name                                                                                  # The device name.
