@@ -91,6 +91,7 @@ The repository is structured as followed:
     * `mouse_example.py`
   * `tinypico/` directory containing TinyPICO specific examples. These are mostly personal projects.
 * `hid_services.py` the library.
+* `hid_keystores.py` different key stores to use with the library.
 * `LICENSE` the license.
 * `readme.md`
 
@@ -135,6 +136,7 @@ The library consists of five classes with the following functions:
   * `set_io_capability(io_capability)` (Set input/output capability of this device Determines the pairing procedure, e.g., accept connection/passkey entry/just works. Must be called before calling `start()`)
   * `set_passkey_callback(passkey_callback)` (Set callback function for pairing events. Callback function should return boolean to accept connection or passkey depending on I/O capability used)
   * `set_passkey(passkey)` (Set the passkey to use for pairing)
+  * `set_keystore(keystore)` (Sets the key store to use from `hid_keystores.py`. Default `JSONKeyStore`)
   * `set_battery_level(level)` (Sets the battery level internally)
   * `notify_battery_level()` (Notifies the central of the current battery level. Call after setting battery level)
   * `notify_hid_report()` (Function for subclasses to override)
@@ -142,7 +144,7 @@ The library consists of five classes with the following functions:
 * `Joystick` (subclass of `HumanInterfaceDevice`, implements joystick service)
   * `__init__(name)` (Initialize the joystick)
   * `start()` (Starts the HID service using joystick characteristics. Calls `HumanInterfaceDevice.start()`)
-  * `write_service_characteristics(handles)` (Writes the joystick HID service characteristics.  Calls `HumanInterfaceDevice.write_service_characteristics(handles)`)
+  * `write_service_characteristics(handles)` (Writes the joystick HID service characteristics. Calls `HumanInterfaceDevice.write_service_characteristics(handles)`)
   * `notify_hid_report()` (Notifies the central of the internal HID joystick status)
   * `set_axes(x, y)` (Sets the joystick axes internally)
   * `set_buttons(b1, b2, b3, b4, b5, b6, b7, b8)` (Sets the joystick buttons internally)

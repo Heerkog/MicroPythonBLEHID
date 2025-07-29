@@ -18,9 +18,9 @@
 from micropython import const
 import struct
 import bluetooth
-import json
-import binascii
 from bluetooth import UUID
+from hid_keystores import JSONKeyStore
+from hid_keystores import NVSKeyStore
 
 F_READ = bluetooth.FLAG_READ
 F_WRITE = bluetooth.FLAG_WRITE
@@ -180,7 +180,6 @@ class Advertiser:
             self._ble.gap_advertise(0, adv_data=self._payload)
             print("Stopped advertising")
 
-
 # Class that represents a general HID device services.
 class HumanInterfaceDevice(object):
     # Define device states
@@ -205,9 +204,7 @@ class HumanInterfaceDevice(object):
         self.key_size = 0                                                                                               # The encryption key size.
 
         self.passkey = 1234                                                                                             # The standard passkey for pairing. Only used when io capability allows so. Use the set_passkey(passkey) function to overwrite.
-        self.secrets = {}                                                                                               # The key store for bonding
-
-        self.load_secrets()                                                                                             # Call the function to load the known keys for bonding into the key store.
+        self.secrets = NVSKeyStore()                                                                                   # The key store for bonding
 
         # General characteristics.
         self.device_name = device_name                                                                                  # The device name.
@@ -350,36 +347,24 @@ class HumanInterfaceDevice(object):
                 print("Unknown passkey action")
         elif event == _IRQ_SET_SECRET:                                                                                  # Set secret for bonding.
             sec_type, key, value = data
-            key = (sec_type, bytes(key))
-            value = bytes(value) if value else None
             if value is None:                                                                                           # If value is empty, and
-                if key in self.secrets:                                                                                 # If key is known then
-                    del self.secrets[key]                                                                               # Forget key
-                    self.save_secrets()
-                    print("Removing secret:", key)
+                if self.secrets.has_secret(sec_type, key):                                                              # If key is known then
+                    self.secrets.remove_secret(sec_type, key)                                                           # Forget key
+                    self.secrets.save_secrets()
+                    print("Removing secret:", bytes(key))
                     return True
                 else:
-                    print("Secret not found:", key)
+                    print("Secret not found:", bytes(key))
                     return False
             else:
-                self.secrets[key] = value                                                                               # Remember key/value
-                self.save_secrets()
-                print("Saving secret:", key, value)
+                self.secrets.add_secret(sec_type, key, value)                                                           # Remember key/value
+                self.secrets.save_secrets()
+                print("Saving secret:", bytes(key), bytes(value))
             return True
         elif event == _IRQ_GET_SECRET:                                                                                  # Get secret for bonding
             sec_type, index, key = data
-            _key = (sec_type, bytes(key) if key else None)
-            value = None
-            if key is None:
-                i = 0
-                for (t, _k), _val in self.secrets.items():
-                    if t == sec_type:
-                        if i == index:
-                            value = _val
-                        i += 1
-            else:
-                value = self.secrets.get(_key, None)
-            print("Returning secret:", bytes(value) if value else None, "for", "key" if key else "index", _key if key else index, "with type", sec_type)
+            value = self.secrets.get_secret(sec_type, index, key)
+            print("Returning secret:", bytes(value) if value else None, "for", "key" if key else "index", bytes(key) if key else index, "with type", sec_type)
             return value
         else:
             print("Unhandled IRQ event:", event)
@@ -389,6 +374,8 @@ class HumanInterfaceDevice(object):
     # the overwritten function by using super(Subclass, self).start().
     def start(self):
         if self.device_state is HumanInterfaceDevice.DEVICE_STOPPED:
+            self.secrets.load_secrets()                                                                                 # Call the function to load the known keys for bonding into the key store.
+
             self._ble.irq(self.ble_irq)                                                                                 # Set interrupt request callback function.
             self._ble.active(1)                                                                                         # Turn on BLE radio.
 
@@ -463,28 +450,6 @@ class HumanInterfaceDevice(object):
 
         for handle, (name, value) in self.characteristics.items():
             self._ble.gatts_write(handle, value)
-
-    # Load bonding keys from json file.
-    def load_secrets(self):
-        try:
-            with open("keys.json", "r") as file:
-                entries = json.load(file)
-                for sec_type, key, value in entries:
-                    self.secrets[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
-        except:
-            print("No secrets available")
-
-    # Save bonding keys to json file.
-    def save_secrets(self):
-        try:
-            with open("keys.json", "w") as file:
-                json_secrets = [
-                    (sec_type, binascii.b2a_base64(key, newline=False), binascii.b2a_base64(value, newline=False))
-                    for (sec_type, key), value in self.secrets.items()
-                ]
-                json.dump(json_secrets, file)
-        except:
-            print("Failed to save secrets")
 
     # Returns whether the device is not stopped.
     def is_running(self):
@@ -606,6 +571,11 @@ class HumanInterfaceDevice(object):
     #   _IO_CAPABILITY_KEYBOARD_DISPLAY.
     def set_io_capability(self, io_capability):
         self.io_capability = io_capability
+
+    # Set the keystore class to use.
+    # Must be called before calling Start().
+    def set_keystore(self, keystore):
+        self.secrets = keystore
 
     # Set callback function for pairing events.
     # Depending on the I/O capability used, the callback function should return either a
