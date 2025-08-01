@@ -83,6 +83,9 @@ ks = NVSKeyStore()
 self.keyboard.set_keystore(ks)
 ```
 
+Please make sure to remove the device from the client before connecting.
+If you do not, the device will expect the keys from the old key store and immediately disconnect.
+
 ### Using a keyboard and mouse simultaneously
 This is not immediately supported.
 You will need to create a new device that has a multi-device HID descriptor and report.
