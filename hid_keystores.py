@@ -36,14 +36,14 @@ class KeyStore(object):
         _key = (type, bytes(key))
         return _key in self.secrets
 
-    def json_dump(self):
+    def get_json_secrets(self):
         json_secrets = [
             (sec_type, binascii.b2a_base64(key, newline=False), binascii.b2a_base64(value, newline=False))
             for (sec_type, key), value in self.secrets.items()
         ]
         return json_secrets
 
-    def add_json_entries(self, entries):
+    def add_json_secrets(self, entries):
         for sec_type, key, value in entries:
             self.secrets[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
 
@@ -60,17 +60,19 @@ class JSONKeyStore(KeyStore):
     def __init__(self):
         super(JSONKeyStore, self).__init__()
 
+    # Load bonding keys from JSON file.
     def load_secrets(self):
         try:
             with open("keys.json", "r") as file:
-                self.add_json_entries(json.load(file))
+                self.add_json_secrets(json.load(file))
         except:
             print("No secrets available")
 
+    # Save bonding keys to JSON file.
     def save_secrets(self):
         try:
             with open("keys.json", "w") as file:
-                json.dump(self.json_dump(), file)
+                json.dump(self.get_json_secrets(), file)
         except:
             print("Failed to save secrets")
 
@@ -89,16 +91,15 @@ class NVSKeyStore(KeyStore):
 
         try:
             num_bytes = self.nvsdata.get_blob("Keys", data)
-            data = bytearray(num_bytes)
-            self.nvsdata.get_blob("Keys", data)
         except:
             print("Failed to read NVS")
 
         if num_bytes > 0:
-            s = str(data, 'utf-8')
             try:
-                entries = json.loads(s)
-                self.add_json_entries(entries)
+                data = bytearray(num_bytes)
+                self.nvsdata.get_blob("Keys", data)
+                entries = json.loads(str(data, 'utf-8'))
+                self.add_json_secrets(entries)
             except:
                 print("Failed to load secrets")
         else:
@@ -107,8 +108,7 @@ class NVSKeyStore(KeyStore):
     # Save bonding keys to non-volatile storage.
     def save_secrets(self):
         try:
-            self.nvsdata.set_blob("Keys", json.dumps(self.json_dump()))
+            self.nvsdata.set_blob("Keys", json.dumps(self.get_json_secrets()))
             self.nvsdata.commit()
         except:
             print("Failed to save secrets")
-
