@@ -690,7 +690,7 @@ class Joystick(HumanInterfaceDevice):
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
-    # Overwrite super to notify central of a hid report.
+    # Overwrite super to notify client of a hid report.
     def notify_hid_report(self):
         if self.is_connected():
             b = self.button1 + self.button2 * 2 + self.button3 * 4 + self.button4 * 8 + self.button5 * 16 + self.button6 * 32 + self.button7 * 64 + self.button8 * 128
@@ -817,13 +817,13 @@ class Mouse(HumanInterfaceDevice):
         self.characteristics[h_d1] = ("HID reference", struct.pack("<BB", 1, 1))                                        # HID reference: id=1, type=input.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
-    # Overwrite super to notify central of a hid report
+    # Overwrite super to notify client of a hid report
     def notify_hid_report(self):
         if self.is_connected():
             b = self.button1 + self.button2 * 2 + self.button3
             state = struct.pack("Bbbb", b, self.x, self.y, self.w)                                                      # Pack the mouse state as described by the input report.
             self.characteristics[self.h_rep] = ("HID report", state)
-            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify central by writing to the report handle.
+            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify client by writing to the report handle.
             print("Notify with report: ", struct.unpack("Bbbb", state))
 
     # Set the mouse axes values.
@@ -925,12 +925,12 @@ class Keyboard(HumanInterfaceDevice):
         self.services.append(self.HIDS)                                                                                 # Append to list of service descriptions.
 
     # Interrupt request callback function
-    # Overwrite super to catch keyboard report write events by the central.
+    # Overwrite super to catch keyboard report write events by the client.
     def ble_irq(self, event, data):
         if event == _IRQ_GATTS_WRITE:                                                                                   # If a client has written to a characteristic or descriptor.
             conn_handle, attr_handle = data                                                                             # Get the handle to the characteristic that was written.
             if attr_handle == self.h_repout:
-                print("Keyboard changed by Central")
+                print("Keyboard changed by client")
                 report = self._ble.gatts_read(attr_handle)                                                              # Read the report.
                 bytes = struct.unpack("B", report)                                                                      # Unpack the report.
                 if self.kb_callback is not None:                                                                        # Call the callback function.
@@ -968,20 +968,20 @@ class Keyboard(HumanInterfaceDevice):
         self.characteristics[h_d2] = ("HID output reference", struct.pack("<BB", 1, 2))                                 # HID reference: id=1, type=output.
         self.characteristics[h_proto] = ("HID protocol mode", b"\x01")                                                  # HID protocol mode: report.
 
-    # Overwrite super to notify central of a hid report.
+    # Overwrite super to notify client of a hid report.
     def notify_hid_report(self):
         if self.is_connected():
             # Pack the Keyboard state as described by the input report.
             state = struct.pack("8B", self.modifiers, 0, self.keypresses[0], self.keypresses[1], self.keypresses[2], self.keypresses[3], self.keypresses[4], self.keypresses[5])
             self.characteristics[self.h_rep] = ("HID input report", state)
-            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify central by writing to the report handle.
+            self._ble.gatts_notify(self.conn_handle, self.h_rep, state)                                                 # Notify client by writing to the report handle.
             print("Notify with report: ", struct.unpack("8B", state))
 
-    # Set the modifier bits, notify to send the modifiers to central.
+    # Set the modifier bits, notify to send the modifiers to client.
     def set_modifiers(self, right_gui=0, right_alt=0, right_shift=0, right_control=0, left_gui=0, left_alt=0, left_shift=0, left_control=0):
         self.modifiers = (right_gui << 7) + (right_alt << 6) + (right_shift << 5) + (right_control << 4) + (left_gui << 3) + (left_alt << 2) + (left_shift << 1) + left_control
 
-    # Press keys, notify to send the keys to central.
+    # Press keys, notify to send the keys to client.
     # This will hold down the keys, call set_keys() without arguments and notify again to release.
     def set_keys(self, k0=0x00, k1=0x00, k2=0x00, k3=0x00, k4=0x00, k5=0x00):
         self.keypresses = [k0, k1, k2, k3, k4, k5]
