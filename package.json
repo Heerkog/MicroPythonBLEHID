@@ -1,7 +1,7 @@
 {
   "urls": [
     ["hid_services.py", "github:Heerkog/MicroPythonBLEHID/hid_services.py"],
-    ["hid_keystore.py", "github:Heerkog/MicroPythonBLEHID/hid_keystore.py"]
+    ["hid_keystores.py", "github:Heerkog/MicroPythonBLEHID/hid_keystores.py"]
   ],
   "version": "2.1.0",
   "deps": []
