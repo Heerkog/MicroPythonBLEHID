@@ -134,7 +134,7 @@ The reason for this is that such functionality is entirely dependent on the inte
 
 The library consists of five classes with the following functions:
 
-* `HumanInterfaceDevice` (superclass for the HID service classes, implements the Device Information and Battery services, and sets up BLE and advertisement)
+* `HumanInterfaceDevice` (Superclass for the HID service classes, implements the Device Information and Battery services, and sets up BLE and advertisement)
   * `__init__(device_name)` (Initialize the superclass)
   * `ble_irq(event, data)` (Internal callback function that catches BLE interrupt requests)
   * `start()` (Starts Device Information and Battery services)
@@ -163,11 +163,12 @@ The library consists of five classes with the following functions:
   * `set_passkey_callback(passkey_callback)` (Set callback function for pairing events. Callback function should return boolean to accept connection or passkey depending on I/O capability used)
   * `set_passkey(passkey)` (Set the passkey to use for pairing)
   * `set_keystore(keystore)` (Sets the key store to use from `hid_keystores.py`. Default `JSONKeyStore`)
+  * `forget_clients()` (Removes all client keys from the key store)
   * `set_battery_level(level)` (Sets the battery level internally)
   * `notify_battery_level()` (Notifies the client of the current battery level. Call after setting battery level)
   * `notify_hid_report()` (Function for subclasses to override)
 
-* `Joystick` (subclass of `HumanInterfaceDevice`, implements joystick service)
+* `Joystick` (Subclass of `HumanInterfaceDevice`, implements joystick service)
   * `__init__(name)` (Initialize the joystick)
   * `start()` (Starts the HID service using joystick characteristics. Calls `HumanInterfaceDevice.start()`)
   * `write_service_characteristics(handles)` (Writes the joystick HID service characteristics. Calls `HumanInterfaceDevice.write_service_characteristics(handles)`)
@@ -175,7 +176,7 @@ The library consists of five classes with the following functions:
   * `set_axes(x, y)` (Sets the joystick axes internally)
   * `set_buttons(b1, b2, b3, b4, b5, b6, b7, b8)` (Sets the joystick buttons internally)
 
-* `Mouse` (subclass of `HumanInterfaceDevice`, implements mouse service)
+* `Mouse` (Subclass of `HumanInterfaceDevice`, implements mouse service)
   * `__init__(name)` (Initialize the mouse)
   * `start()` (Starts the HID service using mouse characteristics. Calls `HumanInterfaceDevice.start()`)
   * `write_service_characteristics(handles)` (Writes the mouse HID service characteristics.  Calls `HumanInterfaceDevice.write_service_characteristics(handles)`)
@@ -184,7 +185,7 @@ The library consists of five classes with the following functions:
   * `set_wheel(w)` (Sets the mouse wheel movement internally)
   * `set_buttons(b1, b2, b3)` (Sets the mouse buttons internally)
 
-* `Keyboard` (subclass of `HumanInterfaceDevice`, implements keyboard service)
+* `Keyboard` (Subclass of `HumanInterfaceDevice`, implements keyboard service)
   * `__init__(name)`  (Initialize the keyboard)
   * `start()` (Starts the HID service using keyboard characteristics. Calls `HumanInterfaceDevice.start()`)
   * `write_service_characteristics(handles)` (Writes the keyboard HID service characteristics.  Calls `HumanInterfaceDevice.write_service_characteristics(handles)`)
@@ -203,6 +204,29 @@ The library consists of five classes with the following functions:
   * `start_advertising()` (Used internally)
   * `stop_advertising()` (Used internally)
 
+* `KeyStore` (Superclass for the key store classes)
+  * `__init__()` (Initialize the key store)
+  * `add_secret(type, key, value)` (Adds a type-key-value triplet)
+  * `get_secret(type, index, key)` (Returns the value for the given type-key pair, or the value at the given index for the given type)
+  * `remove_secret(type, key)` (Removes the type-key-value triplet of the given type-key pair)
+  * `has_secret(type, key)` (Return true iff there exists a value for the given type-key pair)
+  * `get_json_secrets()` (Returns the added type-key-value triplets as a JSON string)
+  * `add_json_secrets(entries)` (Adds all type-key-value triplets contained in the given JSON string)
+  * `clear_secrets()` (Removes all type-key-value triplets)
+  * `load_secrets()` (Function for subclasses to override)
+  * `save_secrets()` (Function for subclasses to override)
+
+* `JSONKeyStore` (Subclass of `KeyStore` that saves the type-key-value triplets as a JSON file)
+  * `__init__()` (Initialize the key store)
+  * `clear_secrets()` (Removes all type-key-value triplets and calls `save_secrets()`)
+  * `load_secrets()` (Loads the JSON file and calls `add_json_secrets(entries)`)
+  * `save_secrets()` (Calls `get_json_secrets()` and saves the result to a file)
+
+* `NVSKeyStore` (Subclass of `KeyStore` that saves the type-key-value triplets in non-volatile storage)
+  * `__init__()` (Initialize the key store)
+  * `clear_secrets()` (Removes all type-key-value triplets and calls `save_secrets()`)
+  * `load_secrets()` (Loads the JSON blob from non-volatile storage and calls `add_json_secrets(entries)`)
+  * `save_secrets()` (Calls `get_json_secrets()` and saves the result to a non-volatile storage blob)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 

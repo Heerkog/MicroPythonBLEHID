@@ -47,6 +47,10 @@ class KeyStore(object):
         for sec_type, key, value in entries:
             self.secrets[sec_type, binascii.a2b_base64(key)] = binascii.a2b_base64(value)
 
+    # Empty key store.
+    def clear_secrets(self):
+        self.secrets = {}
+
     def load_secrets(self):
         return
 
@@ -54,11 +58,16 @@ class KeyStore(object):
         return
 
 
-# Class that uses a JSON file as keystore
+# Class that uses a JSON file to save the keystore
 class JSONKeyStore(KeyStore):
 
     def __init__(self):
         super(JSONKeyStore, self).__init__()
+
+    # Empty key store and save.
+    def clear_secrets(self):
+        super(JSONKeyStore, self).clear_secrets()
+        self.save_secrets()
 
     # Load bonding keys from JSON file.
     def load_secrets(self):
@@ -77,12 +86,17 @@ class JSONKeyStore(KeyStore):
             print("Failed to save secrets")
 
 
-# Class that uses non-volatile storage as keystore
+# Class that uses non-volatile storage to save the keystore
 class NVSKeyStore(KeyStore):
 
     def __init__(self):
         super(NVSKeyStore, self).__init__()
         self.nvsdata = esp32.NVS("BLE")
+
+    # Empty key store and save.
+    def clear_secrets(self):
+        super(NVSKeyStore, self).clear_secrets()
+        self.save_secrets()
 
     # Load bonding keys from non-volatile storage.
     def load_secrets(self):

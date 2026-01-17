@@ -193,6 +193,7 @@ class HumanInterfaceDevice(object):
         self.device_state = HumanInterfaceDevice.DEVICE_STOPPED                                                         # The initial device state.
         self.conn_handle = None                                                                                         # The handle of the connected client. HID devices can only have a single connection.
         self.state_change_callback = None                                                                               # The user defined callback function which gets called when the device state changes.
+        self.passkey_callback = None                                                                                    # The user defined callback function which gets called when a passkey is prompted.
         self.io_capability = _IO_CAPABILITY_NO_INPUT_OUTPUT                                                             # The IO capability of the device. This is used to allow for different ways of identification during pairing.
         self.bond = True                                                                                                # Do we wish to bond with connecting clients? Normally True. Not supported by older Micropython versions.
         self.le_secure = True                                                                                           # Do we wish to use a secure connection? Normally True. Not supported by older Micropython versions.
@@ -393,8 +394,7 @@ class HumanInterfaceDevice(object):
             print("BLE on with", "random" if addr_type else "public", "mac address", addr)
 
     # After registering the DIS and BAS services, write their characteristic values.
-    # Must be overwritten by subclass, and called in
-    # the overwritten function by using
+    # Must be overwritten by subclass, and called in the overwritten function by using
     # super(Subclass, self).save_service_characteristics(handles).
     def save_service_characteristics(self, handles):
         print("Writing service characteristics")
@@ -522,46 +522,55 @@ class HumanInterfaceDevice(object):
         else:
             self.battery_level = level
 
-    # Set device information.
-    # Must be called before calling Start().
-    # Variables must be Strings.
+    # Set device information. Variables must be Strings.
     def set_device_information(self, manufacture_name="Homebrew", model_number="1", serial_number="1"):
-        self.manufacture_name = manufacture_name
-        self.model_number = model_number
-        self.serial_number = serial_number
+        if self.device_state == self.DEVICE_STOPPED:
+            self.manufacture_name = manufacture_name
+            self.model_number = model_number
+            self.serial_number = serial_number
+        else:
+            print("Failed to set device information: device must be stopped.")
 
-    # Set device revision.
-    # Must be called before calling Start().
-    # Variables must be Strings.
+    # Set device revision. Variables must be Strings.
     def set_device_revision(self, firmware_revision="1", hardware_revision="1", software_revision="1"):
-        self.firmware_revision = firmware_revision
-        self.hardware_revision = hardware_revision
-        self.software_revision = software_revision
+        if self.device_state == self.DEVICE_STOPPED:
+            self.firmware_revision = firmware_revision
+            self.hardware_revision = hardware_revision
+            self.software_revision = software_revision
+        else:
+            print("Failed to set device revision: device must be stopped.")
 
     # Set device pnp information.
-    # Must be called before calling Start().
     # Must use the following format:
     #   pnp_manufacturer_source: 0x01 for manufacturers uuid from the Bluetooth uuid list OR 0x02 from the USBs id list.
     #   pnp_manufacturer_uuid: 0xFEB2 for Microsoft, 0xFE61 for Logitech, 0xFD65 for Razer with source 0x01.
     #   pnp_product_id: One byte, user defined.
     #   pnp_product_version: Two bytes, user defined, format as 0xJJMN which corresponds to version JJ.M.N.
     def set_device_pnp_information(self, pnp_manufacturer_source=0x01, pnp_manufacturer_uuid=0xFE61, pnp_product_id=0x01, pnp_product_version=0x0123):
-        self.pnp_manufacturer_source = pnp_manufacturer_source
-        self.pnp_manufacturer_uuid = pnp_manufacturer_uuid
-        self.pnp_product_id = pnp_product_id
-        self.pnp_product_version = pnp_product_version
+        if self.device_state == self.DEVICE_STOPPED:
+            self.pnp_manufacturer_source = pnp_manufacturer_source
+            self.pnp_manufacturer_uuid = pnp_manufacturer_uuid
+            self.pnp_product_id = pnp_product_id
+            self.pnp_product_version = pnp_product_version
+        else:
+            print("Failed to set pnp information: device must be stopped.")
 
     # Set whether to use Bluetooth bonding.
     def set_bonding(self, bond=True):
-        self.bond = bond
+        if self.device_state == self.DEVICE_STOPPED:
+            self.bond = bond
+        else:
+            print("Failed to set bonding: device must be stopped.")
 
     # Set whether to use LE secure pairing.
     def set_le_secure(self, le_secure=True):
-        self.le_secure = le_secure
+        if self.device_state == self.DEVICE_STOPPED:
+            self.le_secure = le_secure
+        else:
+            print("Failed to set LE secure pairing: device must be stopped.")
 
     # Set input/output capability of this device.
     # Determines the pairing procedure, e.g., accept connection/passkey entry/just works.
-    # Must be called before calling Start().
     # Must use the following values:
     #   _IO_CAPABILITY_DISPLAY_ONLY,
     #   _IO_CAPABILITY_DISPLAY_YESNO,
@@ -569,12 +578,26 @@ class HumanInterfaceDevice(object):
     #   _IO_CAPABILITY_NO_INPUT_OUTPUT, or
     #   _IO_CAPABILITY_KEYBOARD_DISPLAY.
     def set_io_capability(self, io_capability):
-        self.io_capability = io_capability
+        if self.device_state == self.DEVICE_STOPPED:
+            self.io_capability = io_capability
+        else:
+            print("Failed to set IO capability: device must be stopped.")
 
     # Set the keystore class to use.
-    # Must be called before calling Start().
+    # Make sure to remove device from client first.
     def set_keystore(self, keystore):
-        self.secrets = keystore
+        if self.device_state == self.DEVICE_STOPPED:
+            self.secrets = keystore
+        else:
+            print("Failed to set keystore: device must be stopped.")
+
+    # Removes saved keys from the keystore.
+    # Make sure to remove device from client first.
+    def forget_clients(self):
+        if self.device_state == self.DEVICE_STOPPED:
+            self.secrets.clear_secrets()
+        else:
+            print("Failed to remove keys: device must be stopped.")
 
     # Set callback function for pairing events.
     # Depending on the I/O capability used, the callback function should return either a
