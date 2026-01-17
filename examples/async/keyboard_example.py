@@ -71,7 +71,7 @@ class Device:
     # Input loop
     async def gather_input(self):
         while self.active:
-            prevkeys = self.keys
+            prevkeys = list(self.keys)
             self.keys.clear()
 
             # Read pin values and update variables
