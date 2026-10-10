@@ -405,7 +405,7 @@ class HumanInterfaceDevice(object):
 
         # Simplify packing strings into byte arrays.
         def string_pack(in_str, nr_bytes):
-            return struct.pack(str(nr_bytes)+"s", in_str.encode('UTF-8'))
+            return struct.pack(str(nr_bytes)+"s", in_str.encode())
 
         print("Saving device information service characteristics")
         self.characteristics[h_mod] = ("Model number", string_pack(self.model_number, 24))
